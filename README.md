@@ -6,7 +6,7 @@ This repository contains OAuth 2.0 profiles and specifications developed by the 
 
 ## Specifications
 
-- [Ena OAuth 2.0 Interoperability Profile](ena-oauth2.md)
+- [Ena OAuth 2.0 Interoperability Profile](ena-oauth2-profile.md)
 
 > More profiles will be developed ...
 
