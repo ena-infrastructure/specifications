@@ -350,11 +350,47 @@ This following grant types MUST NOT be used or supported by entities compliant w
 <a name="general-security-requirements"></a>
 ### 7.1. General Security Requirements
 
-> https://datatracker.ietf.org/doc/html/rfc9700
-> NIST
+All transactions MUST be protected in transit by TLS as described in \[[NIST.800-52.Rev2](#nist800-52)\].
+
+A party acting as a client in a TLS handshake MUST successfully validate the TLS certificate chain up to a trusted root before proceeding with the transaction.
+
+All parties compliant with this profile MUST conform to applicable recommendations in section 16, "Security Considerations" of \[[RFC6749](#rfc6749)\] and those found in "Best Current Practice for OAuth 2.0 Security", \[[RFC9700](#rfc9700)\].
 
 <a name="cryptographic-algorithms"></a>
 ### 7.2. Cryptographic Algorithms
+
+This section lists the requirements for cryptographic algorithm support for being compliant with
+this profile.
+
+All entities compliant with this profile MUST follow the guidelines in \[[NIST.800-131A.Rev2](#nist800-131)\] regarding use of algorithms and key lengths. Specifically, for signature and encryption keys the following requirements apply:
+
+- RSA public keys MUST be at least 2048 bits in length.
+- EC public keys MUST be at least 256 bits in length (signature only). The curve NIST Curve P-256 MUST be supported (\[[RFC5480](#rfc5480)\]), and NIST Curve P-384 and NIST Curve P-521 SHOULD be supported.
+
+Entities conforming to this profile MUST support algorithms according to "JSON Web Algorithms (JWA)", 
+\[[RFC7518](#rfc7518)\], with the following additions:
+
+- `RS256`, RSASSA-PKCS1-v1_5 using SHA-256, is listed as recommended in \[[RFC7518](#rfc7518)\], but is
+REQUIRED to support by this profile.
+
+- `RS384`, RSASSA-PKCS1-v1_5 using SHA-384, is listed as optional in \[[RFC7518](#rfc7518)\],
+but is RECOMMENDED to support by this profile.
+
+- `RS512`, RSASSA-PKCS1-v1_5 using SHA-512, is listed as optional in \[[RFC7518](#rfc7518)\],
+but is RECOMMENDED to support by this profile.
+
+- `ES256`, ECDSA using P-256 and SHA-256, is listed as recommended in \[[RFC7518](#rfc7518)\], but
+is REQUIRED to support by this profile.
+
+- `ES384`, ECDSA using P-384 and SHA-384, is listed as optional in \[[RFC7518](#rfc7518)\], but is 
+RECOMMENDED to support by this profile.
+
+- `ES512`, ECDSA using P-521 and SHA-512, is listed as optional in \[[RFC7518](#rfc7518)\], but is
+RECOMMENDED to support by this profile.
+
+The sender of a secure message MUST NOT use an algorithm that is not set as REQUIRED in \[[RFC7518](#rfc7518)\] or in the listing above, unless it is explicitly declared by the peer in its metadata or registration data.
+
+**Note:** \[[NIST.800-131A.Rev2](#nist800-131)\] contains a listing of algorithms that must not be used. However, there is a need to explicitly point out that the commonly used algorithm SHA-1 for digests is considered broken and MUST NOT be used or accepted.
 
 <a name="client-authentication"></a>
 ### 7.2. Client Authentication
@@ -415,6 +451,10 @@ This following grant types MUST NOT be used or supported by entities compliant w
 **\[RFC6750\]**
 > [Jones, M. and D. Hardt, "The OAuth 2.0 Authorization Framework: Bearer Token Usage", RFC 6750, DOI 10.17487/RFC6750, October 2012](http://www.rfc-editor.org/info/rfc6750).
 
+<a name="rfc7518"></a>
+**\[RFC7518\]**
+> [Jones, M., "JSON Web Algorithms (JWA)", May 2015](https://www.rfc-editor.org/rfc/rfc7518).
+
 <a name="rfc7591"></a>
 **\[RFC7591\]**
 > [Richer, J., Ed., Jones, M., Bradley, J., Machulak, M., and P. Hunt, "OAuth 2.0 Dynamic Client Registration Protocol", RFC 7591, DOI 10.17487/RFC7591, July 2015](https://www.rfc-editor.org/info/rfc7591).
@@ -426,6 +466,18 @@ This following grant types MUST NOT be used or supported by entities compliant w
 <a name="rfc8705"></a>
 **\[RFC8705\]**
 > [Campbell, B., Bradley, J., Sakimura, N., and T. Lodderstedt, "OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens", RFC 8705, DOI 10.17487/RFC8705, February 2020](https://www.rfc-editor.org/info/rfc8705).
+
+<a name="rfc9700"></a>
+**\[RFC9700\]**
+> [Lodderstedt, T., Bradley, J., Labunets, A., Fett, D., "Best Current Practice for OAuth 2.0 Security", RFC 9700, January 2025](https://datatracker.ietf.org/doc/html/rfc9700).
+
+<a name="nist800-52"></a>
+**\[NIST.800-52.Rev2\]**
+> [NIST Special Publication 800-52, Revision 2, "Guidelines for the Selection, Configuration, and Use of Transport Layer Security (TLS) Implementations"](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-52r2.pdf). 
+
+<a name="nist800-131"></a>
+**\[NIST.800-52.Rev2\]**
+> [NIST Special Publication 800-131A Revision 2, "Transitioning the Use of Cryptographic Algorithms and Key Lengths"](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-131Ar2.pdf)
 
 <a name="informational-references"></a>
 ### 9.2. Informational References
