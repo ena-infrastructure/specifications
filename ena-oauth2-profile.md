@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-01
+### Version: 1.0 - draft 01 - 2025-04-08
 
 ## Abstract
 
@@ -32,11 +32,19 @@ Over the years, numerous extensions and features have been introduced, making �
 
     2.2.2. [Client Registration Metadata](#client-registration-metadata)
 
-    2.3. [Connections to Resource Servers](#connections-to-resource-servers)
+    2.3. [Connections to Protected Resources](#connections-to-protected-resources)
 
 3. [**Authorization Server Profile**](#authorization-server-profile)
 
-4. [**Resource Server Profile**](#resource-server-profile)
+4. [**Protected Resource Profile**](#protected-resource-profile)
+
+    4.1. [Validation of Access Tokens](#validation-of-access-tokens)
+
+    4.2. [Resource Server Error Responses](#resource-server-error-responses)
+
+    4.3. [Protected Resource Identity and Registration](#protected-resource-identity-and-registration)
+    
+    4.4. [Protected Resource Access Requirements Modelling](#protected-resource-access-requirements-modelling)
 
 5. [**Grant Types**](#grant-types)
 
@@ -62,6 +70,8 @@ Over the years, numerous extensions and features have been introduced, making �
 
 6. [**Tokens**](#tokens)
 
+    6.1. [Access Tokens](#access-tokens)
+
 7. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
 
     7.1. [General Security Requirements](#general-security-requirements)
@@ -81,6 +91,8 @@ Over the years, numerous extensions and features have been introduced, making �
 8. [**Recommendations for Interoperability**](#recommendations-for-interoperability)
 
     8.1. [Scopes in an Inter-domain Context](#scopes-in-an-inter-domain Context)
+
+    8.2. [Resource Identifiers vs. Resource and Audience Claims](#resource-identifiers-vs-resource-and-audience-claims)
 
 9. [**References**](#references)
 
@@ -111,16 +123,20 @@ The OAuth 2.0 Authorization Framework, \[[RFC6749](#rfc6749)\], defines the foll
 
 - Resource Owner (RO) – An entity that grants access to a protected resource. When the resource owner is a physical person, the terms End User or simply User may be used. In this document, we sometimes use the abbreviation "RO".
 
-- Resource Server (RS) - A server that hosts a protected resource and requires a valid access token to grant access. In most practical cases, a protected resource is an API accessible over HTTP. In this document, we sometimes use the abbreviation "RS".
+- Resource Server (RS) - A server hosting protected resources, capable of accepting and responding to protected resource requests using access tokens. In this document, we sometimes use the abbreviation "RS".
 
 - Client - An application that makes requests to protected resources on behalf of a resource owner (user) with proper authorization. In some documentation concerning OAuth 2.0 and OpenID Connect, a client is sometimes referred to as a Relying Party.
 
 - Authorization Server (AS) - A server responsible for issuing access tokens to a client after the resource owner (user) has been successfully authenticated and has granted the necessary authorization rights. In this document, we sometimes use the abbreviation "AS".
 
+The OAuth 2.0 Authorization Framework: Bearer Token Usage, \[[RFC6750](#rfc6750)\], defines:
+
+- Protected Resource (PR) - A resource (for example, an HTTP service), which is protected by OAuth 2.0 and requires a valid access token for access. In this document, we sometimes use the abbreviation "PR".
+
 <a name="conformance"></a>
 ### 1.3. Conformance
 
-The profile document defines requirements for OAuth 2.0 resource servers, authorization servers, and clients.
+The profile document defines requirements for OAuth 2.0 protected resources, authorization servers, and clients.
 
 When an entity compliant with this profile interacts with other entities that also conform to this profile, in any valid combination, all entities MUST fully adhere to the features and requirements of this specification. Interactions with non-compliant entities are outside the scope of this specification.
 
@@ -167,7 +183,7 @@ However, for interoperability reasons, the requirements stated in the subsection
 <a name="client-identifiers"></a>
 #### 2.2.1. Client Identifiers
 
-Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPs scheme and include a host component. It MUST NOT contain query or fragment components.
+Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
 
 \[[RFC6749](#rfc6749)\] and \[[RFC7591](#rfc7591)\] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in \[[OpenID.Federation](#openid-federation)\] also apply to this profile.
 
@@ -261,8 +277,8 @@ Examples:
 
 For further requirements see section 2.2 of \[[RFC7591](#rfc7591)\].
 
-<a name="connections-to-resource-servers"></a>
-### 2.3. Connections to Resource Servers
+<a name="connections-to-protected-resources"></a>
+### 2.3. Connections to Protected Resources
 
 An OAuth 2.0 client accesses a protected resource by including an access token in its request to the resource server. This section outlines the requirements for how a client compliant with this profile should present an access token in requests to the resource server.
 
@@ -282,7 +298,7 @@ IxCyGYDlkBA7DfyjrqmSHu6pQ2hoZuFqUSLPNY2N0mpHb3nk5K17HWP_3cYHBw7AhHale5wky6-sVA
 
 Clients MAY send the access token in an HTTP request by including it as a form-encoded content parameter named `access_token`, as defined by section 2.2 of \[[RFC6750](#rfc6750)\].
 
-Clients MUST NOT include the access token as a URI query parameter, as specified in section 2.3 of \[[RFC6750](#rfc6750)\]. The reason is that the access token would be visible in the URL and could be stolen by attackers, for example, from the web browser history. Consequently, a resource server compliant with this profile MUST NOT accept an access token transmitted in a query parameter.
+Clients MUST NOT include the access token as a URI query parameter (section 2.3 of \[[RFC6750](#rfc6750)\]). The reason is that the access token would be visible in the URL and could be stolen by attackers, for example, from the web browser history. Consequently, a resource server compliant with this profile MUST NOT accept an access token transmitted in a query parameter.
 
 Clients MUST support and be able to process the `WWW-Authenticate` response header field as specified by section 3 of [[RFC6750](#rfc6750)\].
 
@@ -293,10 +309,81 @@ Clients MUST support and be able to process the `WWW-Authenticate` response head
 
 > Should support rfc9101?
 
-<a name="resource-server-profile"></a>
-## 4. Resource Server Profile
+<a name="protected-resource-profile"></a>
+## 4. Protected Resource Profile
 
-> MUST refuse to process AT sent in query parameter
+An OAuth 2.0 resource server hosting a protected resource grants access to clients if they present a valid access token with the appropriate scope. The resource server trusts an authorization server to authenticate users and, optionally, obtain their consent before issuing an access token to a client. This section outlines the interoperability and security requirements for OAuth 2.0 protected resources and resource servers.
+
+A resource server compliant with this profile MUST accept access tokens passed in the `Authorization` header as a bearer token, as specified in section 2.1 of \[[RFC6750](#rfc6750)\], and access tokens passed as form-encoded content parameters, as specified in section 2.2 of \[[RFC6750](#rfc6750)\].
+
+Resource servers MUST NOT accept access tokens passed in a URI query parameter (section 2.3 of \[[RFC6750](#rfc6750)\]).
+
+Depending on how a resource server services a request, it MAY also act as an OAuth 2.0 client when it needs to invoke underlying protected resources as part of its processing. This pattern may involve features such as "token exchange", which is not covered in this profile. 
+
+> *TODO: Include pointer to informational reference.*
+
+<a name="validation-of-access-tokens"></a>
+### 4.1. Validation of Access Tokens
+
+This profile specifies access tokens only in the form of JWT bearer tokens. This section outlines the requirements for resource servers to validate such access tokens.
+
+Note: This section does not specify any requirements regarding "Token introspection", \[[RFC7662](https://datatracker.ietf.org/doc/html/rfc7662)\], as it is out of scope for this profile.
+
+Resource servers compliant with this profile MUST validate JWT access tokens as specified in section 4 of \[[RFC9068](#rfc9068)\], with the following modifications and clarifications:
+
+* An access token that is not signed according to the requirements specified in section [6.1](#access-tokens) below, MUST be rejected.
+
+* To protect against replay attacks, a resource server MUST maintain a cache of previously received JWT IDs (`jti`). If an access token’s `jti` claim is found in the cache and has not expired, the access token MUST be rejected. See Section 4.1.7 of \[[RFC7519](#rfc7519)\] for the definition of the `jti` claim.
+
+    - A resource server deployed across multiple instances MUST share a common replay cache.
+    
+    - A cached `jti` value is considered expired when the JWT from which it was extracted is no longer valid, based on its `exp` claim.
+    
+* If a protected resource's access rules are based on scopes, the JWT MUST include the `scope` claim (see section 2.2.3 of \[[RFC9068](#rfc9068)\]) with an appropriate scope value. Otherwise, the access token MUST be rejected.
+
+<a name="resource-server-error-responses"></a>
+### 4.2. Resource Server Error Responses
+
+If a request to the resource server fails or is rejected, the resource server MUST inform the client of the error as specified in Section 3 of \[[RFC6750](#rfc6750)\].
+
+A typical example might look like this:
+
+```
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="example",
+                  error="invalid_token",
+                  error_description="The access token has expired"
+```
+
+To ensure interoperability, a resource server compliant with this profile SHOULD NOT use any error codes other than those specified in section 3.1 of \[[RFC6750](#rfc6750)\].
+
+If an access token is rejected due to insufficient scope(s), it is RECOMMENDED to include the scope attribute in the `WWW-Authenticate` header of the error response. This attribute MUST specify the required scope(s) for accessing the protected resource.
+
+Example:
+
+```
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer realm="example",
+                  scope="read write"
+                  error="insufficient_scope",
+                  error_description="Scopes 'read' or 'write' are required"
+```
+
+<a name="protected-resource-identity-and-registration"></a>
+### 4.3. Protected Resource Identity and Registration
+
+A resource compliant with this profile MUST have a Resource Identifier assigned. This identifier MUST be a URL using the HTTPS schema and including a host component. It SHOULD NOT include a query component, and MUST NOT include a fragment component.
+
+If the resource server is functioning in a multi-domain, or federative, context, its identifier MUST be globally unique.
+
+A resource server MAY support publication of its metadata according to the draft "OAuth 2.0 Protected Resource Metadata", \[[Protected.Resource.Metadata](#protected-resource-metadata)\].
+
+See section [8.2](#resource-identifiers-vs-resource-and-audience-claims), [Resource Identifiers vs. Resource and Audience Claims](#resource-identifiers-vs-resource-and-audience-claims), below for recommendations on how to name a resource server.
+
+<a name="protected-resource-access-requirements-modelling"></a>
+### 4.4. Protected Resource Access Requirements Modelling
+
+- TODO: Rules and recommendations concerning required scopes (and additional information).
 
 <a name="grant-types"></a>
 ## 5. Grant Types
@@ -343,6 +430,15 @@ This following grant types MUST NOT be used or supported by entities compliant w
 
 <a name="tokens"></a>
 ## 6. Tokens
+
+<a name="access-tokens"></a>
+### 6.1. Access Tokens
+
+> TODO: Specify JWT access token format
+
+> If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
+
+- `azp`?
 
 <a name="security-requirements-and-considerations"></a>
 ## 7. Security Requirements and Considerations
@@ -425,6 +521,27 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 <a name="scopes-in-a-inter-domain Context"></a>
 ### 8.1. Scopes in a Inter-domain Context
 
+An OAuth 2.0 scope is a mechanism for defining and limiting access to protected resources. It tells the authorization server what level of access the client is requesting, and tells the resource server what access the client has been granted.
+
+In the early days of OAuth 2.0, a typical deployment involved a single authorization server configured to protect a single protected resource. In such cases, when a client requested an access token for a given scope, it was clear to the authorization server which protected resource was being referred to and how to apply its processing logic. Scopes such as `read` and `write` were commonly used and worked well in this context. Their meaning was unambiguous, since the authorization server was configured to protect only one resource.
+
+> TODO: general purpose scopes vs. prefixed scopes
+
+<a name="resource-identifiers-vs-resource-and-audience-claims"></a>
+### 8.2. Resource Identifiers vs. Resource and Audience Claims
+
+In an OAuth 2.0 deployment, there may be confusion regarding the use of the `resource` parameter, as specified in \[[RFC8707](#rfc8707)\], versus the `aud` (audience) claim included in a JWT and verified by the resource server. Additionally, how does the Resource Identifier, as specified in section [4.3](#protected-resource-identity-and-registration), [Protected Resource Identity and Registration](#protected-resource-identity-and-registration), come into play?
+
+This section provides recommendations on how to uniquely identify a resource server and how its resource identifier maps to the `resource` parameter and `aud` claim.
+
+First, let’s clarify what we mean by a resource server or protected resource. A resource server can refer to an entire server exposing multiple endpoints, or to a single resource (e.g., an individual endpoint). Let’s illustrate this with an example: suppose we have two servers, server1 and server2, each exposing two endpoints (resources).
+
+![Resource Servers](images/resource-servers.png)
+
+Server 1 exposes two endpoints, `/api` and `/admin`. These endpoints have different access requirements (in the example expressed only by different scope requirements, but there may be other access requirements as well).
+
+
+
 <a name="references"></a>
 ## 9. References
 
@@ -463,9 +580,21 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 **\[RFC7517\]**
 > [Jones, M., "JSON Web Key (JWK)", RFC 7517, DOI 10.17487/RFC7517, May 2015](http://www.rfc-editor.org/info/rfc7517).
 
+<a name="rfc7519"></a>
+**\[RFC7519\]**
+> [Jones, M., Bradley, J., and N. Sakimura, "JSON Web Token (JWT)", RFC 7519, DOI 10.17487/RFC7519, May 2015](https://datatracker.ietf.org/doc/html/rfc7519).
+
 <a name="rfc8705"></a>
 **\[RFC8705\]**
 > [Campbell, B., Bradley, J., Sakimura, N., and T. Lodderstedt, "OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens", RFC 8705, DOI 10.17487/RFC8705, February 2020](https://www.rfc-editor.org/info/rfc8705).
+
+<a name="rfc8707"></a>
+**\[RFC8707\]**
+[Campbell, B., Bradley, J., and H. Tschofenig, "Resource Indicators for OAuth 2.0", RFC 8707, DOI 10.17487/RFC8707, February 2020](https://datatracker.ietf.org/doc/html/rfc8707).
+
+<a name="rfc9068"></a>
+**\[RFC9068\]**
+> [Bertocci, V., "JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens", RFC 9068, October 2021](https://datatracker.ietf.org/doc/html/rfc9068).
 
 <a name="rfc9700"></a>
 **\[RFC9700\]**
@@ -489,5 +618,9 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 <a name="ena-federation"></a>
 **\[ENA.Federation\]**
 > [Ena OAuth 2.0 Federation Interoperability Profile](ena-oauth2-federation.md).
+
+<a name="protected-resource-metadata"></a>
+**\[Protected.Resource.Metadata\]**
+> [Jones, M.B., Hunt, P., Parecki, A., draft-ietf-oauth-resource-metadata-13, October 2024, "OAuth 2.0 Protected Resource Metadata"](https://datatracker.ietf.org/doc/draft-ietf-oauth-resource-metadata/).
  
 
