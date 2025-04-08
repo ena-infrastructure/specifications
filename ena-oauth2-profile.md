@@ -90,7 +90,7 @@ Over the years, numerous extensions and features have been introduced, making â€
 
 8. [**Recommendations for Interoperability**](#recommendations-for-interoperability)
 
-    8.1. [Scopes in an Inter-domain Context](#scopes-in-an-inter-domain Context)
+    8.1. [Scopes in an Inter-domain Context](#scopes-in-an-inter-domain-context)
 
     8.2. [Resource Identifiers vs. Resource and Audience Claims](#resource-identifiers-vs-resource-and-audience-claims)
 
