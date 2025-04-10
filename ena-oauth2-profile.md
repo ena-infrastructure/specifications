@@ -88,11 +88,9 @@ Over the years, numerous extensions and features have been introduced, making �
 
     7.5. [Threats and Countermeasures](#threats-and-countermeasures)
 
-8. [**Recommendations for Interoperability**](#recommendations-for-interoperability)
+8. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
-    8.1. [Scopes in an Inter-domain Context](#scopes-in-an-inter-domain-context)
-
-    8.2. [Resource Identifiers vs. Resource and Audience Claims](#resource-identifiers-vs-resource-and-audience-claims)
+    8.1. [Defining and Using Scopes](#defining-and-using-scopes)
 
 9. [**References**](#references)
 
@@ -132,6 +130,10 @@ The OAuth 2.0 Authorization Framework, \[[RFC6749](#rfc6749)\], defines the foll
 The OAuth 2.0 Authorization Framework: Bearer Token Usage, \[[RFC6750](#rfc6750)\], defines:
 
 - Protected Resource (PR) - A resource (for example, an HTTP service), which is protected by OAuth 2.0 and requires a valid access token for access. In this document, we sometimes use the abbreviation "PR".
+
+Clarification on the distinction between a Resource Server and a Protected Resource:
+
+Some of the early OAuth 2.0 specifications used only the term Resource Server to denote the entity to which access is delegated. More recent specifications use the term Protected Resource, which is a more accurate and appropriate designation. This profile adopts the term Protected Resource when referring to the resource being protected and its access rules, and reserves the term Resource Server specifically for the server that hosts the Protected Resource, and is capable of accepting and processing access tokens.
 
 <a name="conformance"></a>
 ### 1.3. Conformance
@@ -309,6 +311,8 @@ Clients MUST support and be able to process the `WWW-Authenticate` response head
 
 > Should support rfc9101?
 
+> https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml
+
 <a name="protected-resource-profile"></a>
 ## 4. Protected Resource Profile
 
@@ -372,13 +376,25 @@ WWW-Authenticate: Bearer realm="example",
 <a name="protected-resource-identity-and-registration"></a>
 ### 4.3. Protected Resource Identity and Registration
 
-A resource compliant with this profile MUST have a Resource Identifier assigned. This identifier MUST be a URL using the HTTPS schema and including a host component. It SHOULD NOT include a query component, and MUST NOT include a fragment component.
+A protected resource compliant with this profile MUST have a Resource Identifier assigned. This identifier MUST be a URL using the HTTPS schema and including a host component. It SHOULD NOT include a query component, and MUST NOT include a fragment component.
 
-If the resource server is functioning in a multi-domain, or federative, context, its identifier MUST be globally unique.
+If the protected resource is functioning in a multi-domain, or federative, context, its identifier MUST be globally unique.
 
-A resource server MAY support publication of its metadata according to the draft "OAuth 2.0 Protected Resource Metadata", \[[Protected.Resource.Metadata](#protected-resource-metadata)\].
+A protected resource MAY support publication of its metadata according to the draft "OAuth 2.0 Protected Resource Metadata", \[[Protected.Resource.Metadata](#protected-resource-metadata)\].
 
-See section [8.2](#resource-identifiers-vs-resource-and-audience-claims), [Resource Identifiers vs. Resource and Audience Claims](#resource-identifiers-vs-resource-and-audience-claims), below for recommendations on how to name a resource server.
+It is RECOMMENDED that a protected resource be assigned a resource identifier that corresponds to the URL at which it exposes its service.
+
+Furthermore, if a resource server hosts multiple resources that do not share the same access rules, it is RECOMMENDED that these resources be treated as separate protected resources, and thus be represented with their own resource identifiers.
+
+**Example:**
+
+Assume there are two different servers, server1 and server2, as shown in the illustration below.
+
+![Resource Servers](images/resource-servers.png)
+
+The endpoints on server1 do not share the same access rules and should therefore be treated as two separate protected resources: `https://server1.example.com/api` and `https://server1.example.com/admin`. In contrast, the endpoints exposed by server2 have the same access rules and can therefore be represented by a single protected resource: `https://server2.example.com`.
+
+> Note: In the example below, access rules are illustrated using scope requirements only. In a real-world scenario, other types of rules—such as requirements for specific claims—may also apply.
 
 <a name="protected-resource-access-requirements-modelling"></a>
 ### 4.4. Protected Resource Access Requirements Modelling
@@ -398,7 +414,7 @@ See section [8.2](#resource-identifiers-vs-resource-and-audience-claims), [Resou
 
 > Recommend using JAR, (JWT-Secured Authorization Requests), according to RFC9101, if sensible data is transferred in the authorization request.
 
-<a name="authorization-responses"</a>
+<a name="authorization-responses"></a>
 #### 5.1.2. Authorization Responses
 
 <a name="acg-token-endpoint"></a>
@@ -515,32 +531,51 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 <a name="threats-and-countermeasures"></a>
 ### 7.5. Threats and Countermeasures
 
-<a name="recommendations-for-interoperability"></a>
-## 8. Recommendations for Interoperability 
+<a name="requirements-for-interoperability"></a>
+## 8. Requirements for Interoperability 
 
-<a name="scopes-in-a-inter-domain Context"></a>
-### 8.1. Scopes in a Inter-domain Context
+<a name="defining-and-using-scopes"></a>
+### 8.1. Defining and Using Scopes
 
 An OAuth 2.0 scope is a mechanism for defining and limiting access to protected resources. It tells the authorization server what level of access the client is requesting, and tells the resource server what access the client has been granted.
 
 In the early days of OAuth 2.0, a typical deployment involved a single authorization server configured to protect a single protected resource. In such cases, when a client requested an access token for a given scope, it was clear to the authorization server which protected resource was being referred to and how to apply its processing logic. Scopes such as `read` and `write` were commonly used and worked well in this context. Their meaning was unambiguous, since the authorization server was configured to protect only one resource.
 
-> TODO: general purpose scopes vs. prefixed scopes
+However, when an authorization server protects multiple resources, how can it determine which resource is being requested based solely on a requested scope?
 
-<a name="resource-identifiers-vs-resource-and-audience-claims"></a>
-### 8.2. Resource Identifiers vs. Resource and Audience Claims
+If generic scopes such as `read` and `write` are used, the authorization server cannot deduce which protected resource the client is requesting access to. To address this limitation, there are two possible solutions:
 
-In an OAuth 2.0 deployment, there may be confusion regarding the use of the `resource` parameter, as specified in \[[RFC8707](#rfc8707)\], versus the `aud` (audience) claim included in a JWT and verified by the resource server. Additionally, how does the Resource Identifier, as specified in section [4.3](#protected-resource-identity-and-registration), [Protected Resource Identity and Registration](#protected-resource-identity-and-registration), come into play?
+- Use the `resource` parameter. By using the `resource` parameter as specified in \[[RFC8707](#rfc8707)\], the combination of the indicated protected resource and a (generic) scope provides the authorization server with enough information to process the request and issue an access token.
 
-This section provides recommendations on how to uniquely identify a resource server and how its resource identifier maps to the `resource` parameter and `aud` claim.
+- Define and use non-generic scopes. By defining scopes that are valid only for a specific use case (e.g., a particular protected resource), the authorization server can determine which resource the client is requesting access to based solely on the requested scope.
 
-First, let’s clarify what we mean by a resource server or protected resource. A resource server can refer to an entire server exposing multiple endpoints, or to a single resource (e.g., an individual endpoint). Let’s illustrate this with an example: suppose we have two servers, server1 and server2, each exposing two endpoints (resources).
+It may be tempting to choose the first solution and require that all authorization requests include the `resource` parameter, but there are several issues with this approach that make it less desirable:
 
-![Resource Servers](images/resource-servers.png)
+- Support for the resource parameter, as defined in \[[RFC8707](#rfc8707)\], is not yet widely implemented in standard software.
 
-Server 1 exposes two endpoints, `/api` and `/admin`. These endpoints have different access requirements (in the example expressed only by different scope requirements, but there may be other access requirements as well).
+- The authorization server metadata claim `scopes_supported` (defined in Section 2 of \[[RFC8414](#rfc8414)\]) loses its usefulness, as there is no information indicating which scope maps to which protected resource. Furthermore, if the authorization server is used in a federated context as described in \[[OpenID.Federation](#openid-federation)\], filtering the authorization server metadata according to policy becomes impossible with respect to the `scopes_supported` claim.
 
+Therefore, this profile specifies the following recommendations and requirements:
 
+An authorization server that either protects multiple protected resources or publishes its metadata in a federation (as defined in \[[OpenID.Federation](#openid-federation)\]) SHOULD use scopes that are unique for a given purpose.
+
+If the authorization server operates within a federation, a defined scope values MUST be unique within that federation.
+
+A scope value MAY be defined to map to a set of protected resources, provided they support the same function and access policy. In such cases, the authorization server MAY accept a `resource` parameter to uniquely identify a specific protected resource, or it may issue an access token with multiple audiences (i.e., valid for all protected resources associated with that scope).
+
+It is RECOMMENDED that scope values follow the format: a URL prefix followed by the access right.
+
+It is RECOMMENDED that scope values unique to a single protected resource be constructed using the resource’s identifier followed by the specific access right.
+
+**Example:**
+
+> Suppose the protected resource identified by `https://server.example.com/api` supports two distinct access rights: read and write. 
+
+> The scopes `https://server.example.com/api/read` and `https://server.example.com/api/write` would then uniquely identify the read and write permissions for that protected resource.
+
+An authorization server MAY choose to map a unique scope to a different scope value when including scopes in an access token. This can be useful, for example, when the protected resource is a legacy system with hardcoded scope definitions. Referring to the example above, if a client requests the `https://server.example.com/api/read` scope, the resulting JWT access token could instead contain the scope `read`.
+
+However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”,[[Protected.Resource.Metadata](#protected-resource-metadata)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
 
 <a name="references"></a>
 ## 9. References
@@ -584,13 +619,17 @@ Server 1 exposes two endpoints, `/api` and `/admin`. These endpoints have differ
 **\[RFC7519\]**
 > [Jones, M., Bradley, J., and N. Sakimura, "JSON Web Token (JWT)", RFC 7519, DOI 10.17487/RFC7519, May 2015](https://datatracker.ietf.org/doc/html/rfc7519).
 
+<a name="rfc8414"></a>
+**\[RFC8414\]**
+> [Jones, M., Sakimura, N., and J. Bradley, "OAuth 2.0 Authorization Server Metadata", RFC 8414, DOI 10.17487/RFC8414, June 2018](https://datatracker.ietf.org/doc/html/rfc8414).
+
 <a name="rfc8705"></a>
 **\[RFC8705\]**
 > [Campbell, B., Bradley, J., Sakimura, N., and T. Lodderstedt, "OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens", RFC 8705, DOI 10.17487/RFC8705, February 2020](https://www.rfc-editor.org/info/rfc8705).
 
 <a name="rfc8707"></a>
 **\[RFC8707\]**
-[Campbell, B., Bradley, J., and H. Tschofenig, "Resource Indicators for OAuth 2.0", RFC 8707, DOI 10.17487/RFC8707, February 2020](https://datatracker.ietf.org/doc/html/rfc8707).
+> [Campbell, B., Bradley, J., and H. Tschofenig, "Resource Indicators for OAuth 2.0", RFC 8707, DOI 10.17487/RFC8707, February 2020](https://datatracker.ietf.org/doc/html/rfc8707).
 
 <a name="rfc9068"></a>
 **\[RFC9068\]**
