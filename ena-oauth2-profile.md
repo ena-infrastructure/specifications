@@ -394,7 +394,7 @@ Assume there are two different servers, server1 and server2, as shown in the ill
 
 The endpoints on server1 do not share the same access rules and should therefore be treated as two separate protected resources: `https://server1.example.com/api` and `https://server1.example.com/admin`. In contrast, the endpoints exposed by server2 have the same access rules and can therefore be represented by a single protected resource: `https://server2.example.com`.
 
-> Note: In the example below, access rules are illustrated using scope requirements only. In a real-world scenario, other types of rules—such as requirements for specific claims—may also apply.
+> Note: In the example below, access rules are illustrated solely through scope requirements. In a real-world scenario, additional rules—such as requiring a specific level of end-user authentication—may also apply.
 
 <a name="protected-resource-access-requirements-modelling"></a>
 ### 4.4. Protected Resource Access Requirements Modelling
