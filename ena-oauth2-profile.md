@@ -401,6 +401,10 @@ The endpoints on server1 do not share the same access rules and should therefore
 
 - TODO: Rules and recommendations concerning required scopes (and additional information).
 
+> TODO: Describe both the policy/requirements at the authorization server as well as checks made at the protected resource.
+
+> TODO: Recommendations so that most of the access check can be made by the AS. An PR/RS should only check that subject corresponds to data that is asked for (in case a user's data is requested).
+
 <a name="grant-types"></a>
 ## 5. Grant Types
 
@@ -575,7 +579,7 @@ It is RECOMMENDED that scope values unique to a single protected resource be con
 
 An authorization server MAY choose to map a unique scope to a different scope value when including scopes in an access token. This can be useful, for example, when the protected resource is a legacy system with hardcoded scope definitions. Referring to the example above, if a client requests the `https://server.example.com/api/read` scope, the resulting JWT access token could instead contain the scope `read`.
 
-However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”,[[Protected.Resource.Metadata](#protected-resource-metadata)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
+However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, [[Protected.Resource.Metadata](#protected-resource-metadata)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
 
 <a name="references"></a>
 ## 9. References
