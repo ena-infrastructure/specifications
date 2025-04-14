@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-08
+### Version: 1.0 - draft 01 - 2025-04-14
 
 ## Abstract
 
@@ -337,7 +337,7 @@ Resource servers compliant with this profile MUST validate JWT access tokens as 
 
 * An access token that is not signed according to the requirements specified in section [6.1](#access-tokens) below, MUST be rejected.
 
-* To protect against replay attacks, a resource server MUST maintain a cache of previously received JWT IDs (`jti`). If an access token’s `jti` claim is found in the cache and has not expired, the access token MUST be rejected. See Section 4.1.7 of \[[RFC7519](#rfc7519)\] for the definition of the `jti` claim.
+* Reuse of access tokens across multiple authorized requests MAY be allowed, provided the token remains valid and the protected resource does not enforce single-use semantics. Resource servers that require high assurance or non-repudiation may choose to enforce non-reusability of tokens using the `jti` claim as part of a replay detection strategy.<br /><br />If a protected resource does not permit reuse of access tokens, the resource server MUST maintain a cache of previously received JWT IDs (`jti`). If an access token’s `jti` claim is found in the cache and has not expired, the access token MUST be rejected. See Section 4.1.7 of \[[RFC7519](#rfc7519)\] for the definition of the `jti` claim.
 
     - A resource server deployed across multiple instances MUST share a common replay cache.
     
