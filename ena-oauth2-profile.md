@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-14
+### Version: 1.0 - draft 02 - 2025-04-17
 
 ## Abstract
 
@@ -207,7 +207,9 @@ Within a pure OAuth 2.0 context, there is no concept of a "client metadata docum
 
 The `redirect_uris` claim is REQUIRED if the client is registered for the `authorization_code` grant type (or any other custom redirect-based flow). If set, at least one URI MUST be provided.
 
-The redirect URIs provided MUST be absolute URIs as defined in section 4.3 of \[[RFC3986](#rfc3986)\]. Redirect URIs MUST be one of the following:
+The redirect URIs provided MUST be absolute URIs as defined in section 4.3 of \[[RFC3986](#rfc3986)\] in order to prevent mix-up attacks for clients. See 
+section 4.1.1 of \[[RFC9700](#rfc9700)\].
+Redirect URIs MUST be one of the following:
 
 - An HTTPS URL,
 
@@ -216,6 +218,8 @@ The redirect URIs provided MUST be absolute URIs as defined in section 4.3 of \[
 - and, for testing purposes, a URI that is hosted on the local domain of the client (e.g., `http://localhost:8080`).
 
 If more than one redirect URI is provided, different domains SHOULD NOT be used.
+
+If a client needs to register to multiple authorization servers it can not re-use a redirect uri that has been used for another authorization server see [5.1.1](#authorization-requests)
 
 > TODO: Add reference to security chapter where attacks concerning redirects are listed.
 
@@ -414,7 +418,10 @@ The endpoints on server1 do not share the same access rules and should therefore
 <a name="authorization-requests"></a>
 #### 5.1.1. Authorization Requests
 
-> TODO: Note about multiple `redirect_uris`. See 2.3.2 of OAuth2.1
+`redirect_uri`: OPTIONAL if only one `redirect_uri` has been registered for the given issuer; 
+REQUIRED otherwise. Each redirect_uri MUST be distinct per issuer when multiple issuers are involved. 
+The `redirect_uri` MUST be compared to the set of valid `redirect_uri`s for the given issuer. If there is no match, the client MUST abort the flow.
+See section 7.13.2 of \[[RFC9700](#rfc9700)\].
 
 > Recommend using JAR, (JWT-Secured Authorization Requests), according to RFC9101, if sensible data is transferred in the authorization request.
 
