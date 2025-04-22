@@ -416,6 +416,8 @@ The endpoints on server1 do not share the same access rules and should therefore
 <a name="authorization-requests"></a>
 #### 5.1.1. Authorization Requests
 
+> TODO: Note about multiple `redirect_uris`. See 2.3.2 of OAuth2.1
+
 > Recommend using JAR, (JWT-Secured Authorization Requests), according to RFC9101, if sensible data is transferred in the authorization request.
 
 <a name="authorization-responses"></a>
