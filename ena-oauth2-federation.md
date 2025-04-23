@@ -66,6 +66,8 @@ These keywords are capitalized when used to unambiguously specify requirements o
 
 - Client metadata document
 
+- Key rollover recommendations
+
 <a name="references"></a>
 ## 9. References
 

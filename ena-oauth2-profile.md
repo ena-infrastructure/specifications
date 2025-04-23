@@ -33,8 +33,28 @@ Over the years, numerous extensions and features have been introduced, making �
     2.2.2. [Client Registration Metadata](#client-registration-metadata)
 
     2.3. [Connections to Protected Resources](#connections-to-protected-resources)
+    
+    2.4. [Connections to Authorization Servers](#connections-to-authorization-servers)
 
 3. [**Authorization Server Profile**](#authorization-server-profile)
+
+    3.1. [Metadata and Discovery](#metadata-and-discovery)
+
+    3.1.1. [Authorization Server Metadata](#authorization-server-metadata)
+
+    3.1.2. [Authorization Server Metadata Publishing](#authorization-server-metadata-publishing)
+
+    3.2. [Client Registration](#client-registration)
+
+    3.3. [Authorization Server Endpoints](#authorization-server-endpoints)
+
+    3.3.1. [Authorization Endpoint](#authorization-endpoint)
+
+    3.3.2. [Token Endpoint](#token-endpoint)
+    
+    3.3.3. [Other Endpoints](#other-endpoints)
+
+    3.4. [Configuration of Protected Resources](#configuration-of-protected-resources)
 
 4. [**Protected Resource Profile**](#protected-resource-profile)
 
@@ -85,6 +105,8 @@ Over the years, numerous extensions and features have been introduced, making �
     7.3.2. [Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication)
 
     7.4. [OAuth 2.0 Security Mechanisms](#oauth-20-security-mechanisms)
+
+    7.4.1. [PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange)
 
     7.5. [Threats and Countermeasures](#threats-and-countermeasures)
 
@@ -252,7 +274,7 @@ The client's JSON Web Key Set \[[RFC7517](#rfc7517)\] document, passed by value 
 
 If the client has registered the `private_key_jwt` token endpoint authentication method, or if the client produces signatures in other circumstances, one, but not both, of the `jwks` and `jwks_uri` claims is REQUIRED.
 
-To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter.
+To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter. 
 
 The JWKs provided in the key set MUST adhere to the requirements put in section [7.2](#cryptographic-algorithms), [Cryptographic Algorithms](#cryptographic-algorithms), below.
 
@@ -304,14 +326,194 @@ Clients MUST NOT include the access token as a URI query parameter (section 2.3 
 
 Clients MUST support and be able to process the `WWW-Authenticate` response header field as specified by section 3 of [[RFC6750](#rfc6750)\].
 
+<a name="connections-to-authorization-servers"></a>
+### 2.4. Connections to Authorization Servers
+
+> TODO: Write about AS metadata discovery
+
+> TODO: Refer to grants below for authz and token
+
 <a name="authorization-server-profile"></a>
 ## 3. Authorization Server Profile
 
-> Should be able to handle clients registered elsewhere
-
-> Should support rfc9101?
+All authorization servers compliant with this profile MUST adhere to the security requirements stated in section [7](#security-requirements-and-considerations), [Security Requirements and Considerations](#security-requirements-and-considerations).
 
 > https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml
+
+<a name="metadata-and-discovery"></a>
+### 3.1. Metadata and Discovery
+
+This section contains requirements on an authorization server's metadata document and how this metadata document is published on a well-known location. 
+
+An authorization server that acts as an OpenID Provider MUST also adhere to section 5.2, "Discovery Requirements for an OpenID Provider", of \[[OIDC.Sweden.Profile](#oidc-profile)\].
+
+<a name="authorization-server-metadata"></a>
+#### 3.1.1. Authorization Server Metadata
+
+An authorization server compliant with this profile MUST produce a metadata JSON document as specified in section 2 of \[[RFC8414](#rfc8414)\], with the extensions and clarifications stated in the subsections below. 
+
+<a name="issuer--the-authorization-server-entity-identifier"></a>
+##### 3.1.1.1. Issuer - The Authorization Server Entity Identifier
+
+**Metadata claim:** `issuer`
+
+The `issuer` claim is REQUIRED and MUST be a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
+
+The authorization server metadata is published at a location derived from this issuer identifier. See section [3.1.2](#authorization-server-metadata-publishing), [Authorization Server Metadata Publishing](#authorization-server-metadata-publishing), below.
+
+<a name="authorization-server-endpoints"></a>
+##### 3.1.1.2. Authorization Server Endpoints
+
+**Metadata claim:** `authorization_endpoint`
+
+The `authorization_endpoint` claim contains the fully qualified URL of the authorization server’s authorization endpoint, as defined in \[[RFC6749](#rfc6749)\]. This claim is REQUIRED unless the authorization server does not support any grant types that make use of the authorization endpoint.
+
+**Metadata claim:** `token_endpoint`
+
+The `token_endpoint` claim contains the fully qualified URL of the authorization server’s token endpoint, as defined in \[[RFC6749](#rfc6749)\]. This claim is REQUIRED.
+
+The claims `registration_endpoint`, `revocation_endpoint` and `introspection_endpoint` are OPTIONAL, and their presence depends on whether the authorization server supports the corresponding features.
+
+<a name="as-json-web-key-set"></a>
+##### 3.1.1.3. JSON Web Key Set
+
+**Metadata claim:** `jwks_uri`
+
+The `jwks_uri` claim is REQUIRED, and contains an URL to the authorization server's JSON Web Key Set \[[RFC7517](#rfc7517)\] document. This URL MUST use the HTTPS scheme.
+
+The `use` parameter is REQUIRED for all keys in the referenced JWK Set to indicate each key's intended usage.
+
+To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter. 
+
+The JWKs provided in the key set MUST adhere to the requirements put in section [7.2](#cryptographic-algorithms), [Cryptographic Algorithms](#cryptographic-algorithms), below.
+
+<a name="as-supported-scopes"></a>
+##### 3.1.1.4. Supported Scopes
+
+**Metadata claim:** `scopes_supported`
+
+The `scopes_supported` claim is REQUIRED and it SHOULD list all scopes supported by the authorization server in a JSON array. Authorization servers MAY choose to omit certain scopes that are client-specific or otherwise not intended for general use.
+
+<a name="as-supported-grant-types"></a>
+##### 3.1.1.5. Supported Grant Types
+
+**Metadata claim:** `grant_types_supported`
+
+The requirements of this profile are the same as those specified in Section 2 of \[[RFC8414](#rfc8414)\], with the following exception:
+
+If the claim is omitted, the default value SHALL be [ "authorization_code" ].
+
+<a name="supported-endpoint-authentication-methods"></a>
+##### 3.1.1.6. Supported Endpoint Authentication Methods
+
+**Metadata claim:** `token_endpoint_auth_methods_supported`
+
+The `token_endpoint_auth_methods_supported` claim is REQUIRED and MUST include `private_key_jwt`. It MAY also include `tls_client_auth` or `self_signed_tls_client_auth`, but MUST NOT include any other methods. See section [7.3](#client-authentication), [Client Authentication](#client-authentication), below.
+
+**Metadata claim:** `revocation_endpoint_auth_methods_supported`
+
+The `revocation_endpoint_auth_methods_supported` claim is REQUIRED if the authorization server supports token revocation (i.e., if the `revocation_endpoint` claim is included). If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_methods_supported` claim (see above).
+
+**Metadata claim:** `introspection_endpoint_auth_methods_supported`
+
+The `introspection_endpoint_auth_methods_supported` claim is REQUIRED if the authorization server supports token introspection (i.e., if the `introspection_endpoint` claim is included). If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_methods_supported` claim (see above).
+
+<a name="supported-authentication-signing-algorithms-for-endpoints"></a>
+##### 3.1.1.7. Supported Authentication Signing Algorithms for Endpoints
+
+**Metadata claim:** `token_endpoint_auth_signing_alg_values_supported`
+
+The `token_endpoint_auth_signing_alg_values_supported` claim is REQUIRED, and its contents MUST conform to the signature requirements specified in section [7.2](#cryptographic-algorithms), [Cryptographic Algorithms](#cryptographic-algorithms).
+
+**Metadata claim:** `revocation_endpoint_auth_methods_supported`
+
+The `revocation_endpoint_auth_methods_supported` is REQUIRED if `revocation_endpoint_auth_methods_supported` is assigned. If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` claim (see above).
+
+**Metadata claim:** `introspection_endpoint_auth_methods_supported`
+
+The `introspection_endpoint_auth_methods_supported` is REQUIRED if `introspection_endpoint_auth_methods_supported` is assigned. If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` claim (see above).
+
+<a name="supported-code-challenge-methods"></a>
+##### 3.1.1.8. Supported Code Challenge Methods
+
+**Metadata claim:** `code_challenge_methods_supported`
+
+An authorization server compliant with this profile MUST support the PKCE extension (see [7.4.1](#pkce-proof-key-for-code-exchange), [PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange)). Therefore, the `code_challenge_methods_supported` claim is REQUIRED and MUST include the `S256` challenge method. The `plain` challenge method MUST NOT be supported.
+
+<a name="supported-ui-locales"></a>
+##### 3.1.1.9. Supported UI Locales
+
+**Metadata claim:** `ui_locales_supported`
+
+The `ui_locales_supported` claim SHOULD be present and include Swedish (`sv`) and English (`en`).
+
+<a name="authorization-server-metadata-example"></a>
+##### 3.1.1.10. Authorization Server Metadata Example
+
+Below is an example of the metadata document for an authorization server:
+
+```json
+{
+  "issuer" : "https://as.example.com/",
+  "authorization_endpoint" : "https://as.example.com/authorize",
+  "token_endpoint" : "https://as.example.com/token",
+  "jwks_uri" : "https://as.example.com/jwk",
+  "scopes_supported" : [
+    "https://server1.example.com/api/read",
+    "https://server1.example.com/api/write",
+    "https://server2.example.com/read",
+    "https://server2.example.com/write"
+  ],
+  "response_types_supported" : [ "code", "token" ],
+  "grant_types_supported" : [ "authorization_code", "client_credentials" ],  
+  "token_endpoint_auth_methods_supported" : [ "private_key_jwt" ],
+  "token_endpoint_auth_signing_alg_values_supported" : [
+    "RS256", "RS384", "RS512", "ES256", "ES384", "ES512"
+  ],
+  "service_documentation" : "https://as.example.com/docs/register",
+  "ui_locales_supported" : [ "sv", "en" ], 
+  "op_policy_uri" : "https://as.example.com/docs/policy",
+  "code_challenge_methods_supported" : [ "S256" ]  
+}
+```
+
+<a name="authorization-server-metadata-publishing"></a>
+#### 3.1.2. Authorization Server Metadata Publishing
+
+// RFC 8615
+
+\[[RFC8615](#rfc8615)\]
+
+publish its metadata according to section 3 of 
+\[[RFC8414](#rfc8414)\] using 
+
+> Additional requirements for authorization server metadata may be supplied in other profiles, for example by \[[ENA.Federation](#ena-federation)\].
+
+
+
+<a name="client-registration"></a>
+### 3.2. Client Registration
+
+- Should be able to handle clients registered elsewhere
+
+<a name="authorization-server-endpoints"></a>
+### 3.3. Authorization Server Endpoints
+
+<a name="authorization-endpoint"></a>
+#### 3.3.1. Authorization Endpoint
+
+- rfc9101. Optional to support
+
+<a name="token-endpoint"></a>
+#### 3.3.2. Token Endpoint
+
+- Client authn requirements
+
+<a name="other-endpoints"></a>
+#### 3.3.3. Other Endpoints
+
+<a name="configuration-of-protected-resources"></a>
+### 3.4. Configuration of Protected Resources
 
 <a name="protected-resource-profile"></a>
 ## 4. Protected Resource Profile
@@ -509,15 +711,15 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 **Note:** \[[NIST.800-131A.Rev2](#nist800-131)\] contains a listing of algorithms that must not be used. However, there is a need to explicitly point out that the commonly used algorithm SHA-1 for digests is considered broken and MUST NOT be used or accepted.
 
 <a name="client-authentication"></a>
-### 7.2. Client Authentication
+### 7.3. Client Authentication
 
 <a name="signed-jwt-for-client-authentication"></a>
-#### 7.2.1. Signed JWT for Client Authentication
+#### 7.3.1. Signed JWT for Client Authentication
 
 > `private_key_jwt`, RFC7523
 
 <a name="mutual-tls-for-client-authentication"></a>
-#### 7.2.2. Mutual TLS for Client Authentication
+#### 7.3.2. Mutual TLS for Client Authentication
 
 > RFC8705
 
@@ -525,6 +727,12 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 
 <a name="oauth-20-security-mechanisms"></a>
 ### 7.4. OAuth 2.0 Security Mechanisms
+
+<a name="pkce-proof-key-for-code-exchange"></a>
+#### 7.4.1. PKCE - Proof Key for Code Exchange
+
+PKCE - RFC7636
+
 
 - PKCE
 - sender constrained tokens
@@ -627,6 +835,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC8414\]**
 > [Jones, M., Sakimura, N., and J. Bradley, "OAuth 2.0 Authorization Server Metadata", RFC 8414, DOI 10.17487/RFC8414, June 2018](https://datatracker.ietf.org/doc/html/rfc8414).
 
+<a name="rfc8615"></a>
+**\[RFC8615\]**
+> [Nottingham, M., "Well-Known Uniform Resource Identifiers (URIs)", RFC 8615, May 2019](https://datatracker.ietf.org/doc/html/rfc8615).
+
 <a name="rfc8705"></a>
 **\[RFC8705\]**
 > [Campbell, B., Bradley, J., Sakimura, N., and T. Lodderstedt, "OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens", RFC 8705, DOI 10.17487/RFC8705, February 2020](https://www.rfc-editor.org/info/rfc8705).
@@ -650,6 +862,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="nist800-131"></a>
 **\[NIST.800-131A.Rev2\]**
 > [NIST Special Publication 800-131A Revision 2, "Transitioning the Use of Cryptographic Algorithms and Key Lengths"](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-131Ar2.pdf)
+
+<a name="oidc-profile"></a>
+**\[OIDC.Sweden.Profile\]**
+> [The Swedish OpenID Connect Profile - Version 1.0](https://www.oidc.se/specifications/swedish-oidc-profile-1_0.html).
 
 <a name="informational-references"></a>
 ### 9.2. Informational References
