@@ -352,6 +352,10 @@ An authorization server that acts as an OpenID Provider MUST also adhere to sect
 
 An authorization server compliant with this profile MUST produce a metadata JSON document as specified in section 2 of \[[RFC8414](#rfc8414)\], with the extensions and clarifications stated in the subsections below. 
 
+An authorization server MAY provide signed metadata as specified in Section 2.1 of \[[RFC8414](#rfc8414)\]. In such cases, the authorization server MUST sign the metadata using one of the mandatory signature algorithms listed in section [7.2](#cryptographic-algorithms), [Cryptographic Algorithms](#cryptographic-algorithms).
+
+> Note: Additional requirements for authorization server metadata may be supplied in other profiles.
+
 <a name="issuer--the-authorization-server-entity-identifier"></a>
 ##### 3.1.1.1. Issuer - The Authorization Server Entity Identifier
 
@@ -359,7 +363,7 @@ An authorization server compliant with this profile MUST produce a metadata JSON
 
 The `issuer` claim is REQUIRED and MUST be a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
 
-The authorization server metadata is published at a location derived from this issuer identifier. See section [3.1.2](#authorization-server-metadata-publishing), [Authorization Server Metadata Publishing](#authorization-server-metadata-publishing), below.
+The authorization server metadata is published at a location derived from its issuer identifier. See section [3.1.2](#authorization-server-metadata-publishing), [Authorization Server Metadata Publishing], below. This means that if the authorization server is hosted under a path other than the root, the `issuer` value MUST reflect this. For example, `https://as.example.com/service` would be the correct `issuer` value if the authorization server is deployed under the `/service` path at the `as.example.com` host.
 
 <a name="authorization-server-endpoints"></a>
 ##### 3.1.1.2. Authorization Server Endpoints
@@ -477,19 +481,42 @@ Below is an example of the metadata document for an authorization server:
 }
 ```
 
+> Note: If the authorization server also acts as an OpenID Provider, additional metadata claims will appear in the metadata document.
+
 <a name="authorization-server-metadata-publishing"></a>
 #### 3.1.2. Authorization Server Metadata Publishing
 
-// RFC 8615
+Section 3 of \[[RFC8414](#rfc8414)\] states the following:
 
-\[[RFC8615](#rfc8615)\]
+> "Authorization servers supporting metadata MUST make a JSON document containing metadata as specified in Section 2 available at a path formed by inserting a well-known URI string into the authorization server's issuer identifier between the host component and the path component, if any. By default, the well-known URI string used is `/.well-known/oauth-authorization-server`.".
 
-publish its metadata according to section 3 of 
-\[[RFC8414](#rfc8414)\] using 
+For an authorization server whose issuer identifier has no path component, for example, `https://as.example.com`, the resulting discovery URL is:
 
-> Additional requirements for authorization server metadata may be supplied in other profiles, for example by \[[ENA.Federation](#ena-federation)\].
+```
+https://as.example.com/.well-known/oauth-authorization-server
+```
 
+However, if the authorization server is not deployed at the root but instead under a path such as `/service`, its issuer identifier becomes `https://as.example.com/service`. In this case, according to \[[RFC8414](#rfc8414)\], the discovery URL must be:
 
+```
+https://as.example.com/.well-known/oauth-authorization-server/service
+```
+
+This construction may lead to practical deployment challenges, as it requires control over the root path of the host.
+
+Section 4.1 of \[[OpenID.Discovery](#openid-discovery)\] specifies a more pragmatic approach for constructing the discovery URL: the well-known URI suffix is appended to the issuer identifier. Using this method, an authorization server with the issuer https://as.example.com/service would publish its metadata at:
+
+```
+https://as.example.com/service/.well-known/oauth-authorization-server
+```
+
+This approach is more practical but does not fully comply with the requirements in section 3 of \[[RFC8414](#rfc8414)\]. Therefore, this profile defines the following requirements:
+
+- An authorization server deployed directly under the host root MUST publish its metadata in accordance with section 3 of \[[RFC8414](#rfc8414)\].
+
+- An authorization server with a path component in its issuer identifier (i.e., not deployed at the root) SHOULD publish its metadata as specified in section 3 of \[[RFC8414](#rfc8414)\]. If this is not feasible, it MUST publish metadata as described in section 4.1 of \[[OpenID.Discovery](#openid-discovery)\], using `/.well-known/oauth-authorization-server` as the well-known URI suffix.
+
+- Consumers of authorization server metadata MUST attempt discovery using all possible locations, as described in section 5 (“Compatibility Notes”) of \[[RFC8414](#rfc8414)\]. This includes support for legacy URIs such as `/.well-known/openid-configuration`.
 
 <a name="client-registration"></a>
 ### 3.2. Client Registration
@@ -582,7 +609,7 @@ A protected resource compliant with this profile MUST have a Resource Identifier
 
 If the protected resource is functioning in a multi-domain, or federative, context, its identifier MUST be globally unique.
 
-A protected resource MAY support publication of its metadata according to the draft "OAuth 2.0 Protected Resource Metadata", \[[Protected.Resource.Metadata](#protected-resource-metadata)\].
+A protected resource MAY support publication of its metadata according to "OAuth 2.0 Protected Resource Metadata", \[[RFC9728](#rfc9728)\].
 
 It is RECOMMENDED that a protected resource be assigned a resource identifier that corresponds to the URL at which it exposes its service.
 
@@ -787,7 +814,7 @@ It is RECOMMENDED that scope values unique to a single protected resource be con
 
 An authorization server MAY choose to map a unique scope to a different scope value when including scopes in an access token. This can be useful, for example, when the protected resource is a legacy system with hardcoded scope definitions. Referring to the example above, if a client requests the `https://server.example.com/api/read` scope, the resulting JWT access token could instead contain the scope `read`.
 
-However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, [[Protected.Resource.Metadata](#protected-resource-metadata)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
+However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, \[[RFC9728](#rfc9728)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
 
 <a name="references"></a>
 ## 9. References
@@ -855,6 +882,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC9700\]**
 > [Lodderstedt, T., Bradley, J., Labunets, A., Fett, D., "Best Current Practice for OAuth 2.0 Security", RFC 9700, January 2025](https://datatracker.ietf.org/doc/html/rfc9700).
 
+<a name="rfc9728"></a>
+**\[RFC9728\]**
+> [Jones, M.B., Hunt, P., Parecki. A., "OAuth 2.0 Protected Resource Metadata", RFC 9728, April 2025](https://datatracker.ietf.org/doc/html/rfc9728).
+
 <a name="nist800-52"></a>
 **\[NIST.800-52.Rev2\]**
 > [NIST Special Publication 800-52, Revision 2, "Guidelines for the Selection, Configuration, and Use of Transport Layer Security (TLS) Implementations"](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-52r2.pdf). 
@@ -867,8 +898,16 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[OIDC.Sweden.Profile\]**
 > [The Swedish OpenID Connect Profile - Version 1.0](https://www.oidc.se/specifications/swedish-oidc-profile-1_0.html).
 
+<a name="openid-discovery"></a>
+**\[OpenID.Discovery\]**
+> [Sakimura, N., Bradley, J., Jones, M., and E. Jay, "OpenID Connect Discovery 1.0 incorporating errata set 2", December 2023](https://openid.net/specs/openid-connect-discovery-1_0.html).
+
 <a name="informational-references"></a>
 ### 9.2. Informational References
+
+<a name="openid-discovery"></a>
+**\[OpenID.Discovery\]**
+> [Sakimura, N., Bradley, J., Jones, M., and E. Jay, "OpenID Connect Discovery 1.0 incorporating errata set 2", December 2023](https://openid.net/specs/openid-connect-discovery-1_0.html).
 
 <a name="openid-federation"></a>
 **\[OpenID.Federation\]**
@@ -877,9 +916,5 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="ena-federation"></a>
 **\[ENA.Federation\]**
 > [Ena OAuth 2.0 Federation Interoperability Profile](ena-oauth2-federation.md).
-
-<a name="protected-resource-metadata"></a>
-**\[Protected.Resource.Metadata\]**
-> [Jones, M.B., Hunt, P., Parecki, A., draft-ietf-oauth-resource-metadata-13, October 2024, "OAuth 2.0 Protected Resource Metadata"](https://datatracker.ietf.org/doc/draft-ietf-oauth-resource-metadata/).
  
 
