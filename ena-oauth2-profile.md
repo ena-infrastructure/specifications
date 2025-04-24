@@ -356,7 +356,7 @@ An authorization server MAY provide signed metadata as specified in Section 2.1 
 
 > Note: Additional requirements for authorization server metadata may be supplied in other profiles.
 
-<a name="issuer--the-authorization-server-entity-identifier"></a>
+<a name="issuer-the-authorization-server-entity-identifier"></a>
 ##### 3.1.1.1. Issuer - The Authorization Server Entity Identifier
 
 **Metadata claim:** `issuer`
@@ -469,7 +469,7 @@ Below is an example of the metadata document for an authorization server:
     "https://server2.example.com/write"
   ],
   "response_types_supported" : [ "code", "token" ],
-  "grant_types_supported" : [ "authorization_code", "client_credentials" ],  
+  "grant_types_supported" : [ "authorization_code", "refresh_token", "client_credentials" ],  
   "token_endpoint_auth_methods_supported" : [ "private_key_jwt" ],
   "token_endpoint_auth_signing_alg_values_supported" : [
     "RS256", "RS384", "RS512", "ES256", "ES384", "ES512"
@@ -521,7 +521,13 @@ This approach is more practical but does not fully comply with the requirements 
 <a name="client-registration"></a>
 ### 3.2. Client Registration
 
-- Should be able to handle clients registered elsewhere
+This profile does not specify how a client is registered with the authorization server. Registration may be performed statically, via an out-of-band procedure, through dynamic registration as specified in \[[RFC7591](#rfc7591)\], or by resolving client metadata using OpenID Federation.
+
+An authorization server compliant with this profile MUST ensure that the metadata of a client being registered complies with the requirements stated in section [2.2.2](#client-registration-metadata), [Client Registration Metadata](#client-registration-metadata), and MUST NOT complete the registration if the metadata does not comply.
+
+If a client identifier is assigned by the authorization server at registration time, the identifier MUST comply with the requirements stated in section [2.2.1](#client-identifiers), [Client Identifiers](#client-identifiers).
+
+An authorization server compliant with this profile MUST support the registration of a client that already has an assigned client identifier.
 
 <a name="authorization-server-endpoints"></a>
 ### 3.3. Authorization Server Endpoints
