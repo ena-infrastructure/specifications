@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-17
+### Version: 1.0 - draft 01 - 2025-04-29
 
 ## Abstract
 
@@ -505,6 +505,15 @@ RECOMMENDED to support by this profile.
 
 - `ES512`, ECDSA using P-521 and SHA-512, is listed as optional in \[[RFC7518](#rfc7518)\], but is
 RECOMMENDED to support by this profile.
+
+Furthermore, it is RECOMMENDED that an authorization server compliant with this profile supports the following algorithms that are listed as optional in \[[RFC7518](#rfc7518)\]:
+
+- `PS256`, RSASSA-PSS using SHA-256 and MGF1 with SHA-256,
+
+- `PS384`, RSASSA-PSS using SHA-384 and MGF1 with SHA-384,
+
+- `PS512`, RSASSA-PSS using SHA-512 and MGF1 with SHA-512.
+ 
 
 The sender of a secure message MUST NOT use an algorithm that is not set as REQUIRED in \[[RFC7518](#rfc7518)\] or in the listing above, unless it is explicitly declared by the peer in its metadata or registration data.
 
