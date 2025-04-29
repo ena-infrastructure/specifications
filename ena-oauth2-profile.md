@@ -605,7 +605,7 @@ The following parameter requirements apply for authorization servers compliant w
 
 - `access_token` - The newly issued access token. This parameter is REQUIRED.
 
-- `token_type` - The type of access token issued. This parameter is REQUIRED. This profile allows the values "Bearer" (see \[[RFC6750](#rfc6750)\]) or "DPop" (see \[[RFC9449](#rfc9449)\]).
+- `token_type` - The type of access token issued. This parameter is REQUIRED. This profile allows the values "Bearer" (see \[[RFC6750](#rfc6750)\]) or "DPoP" (see \[[RFC9449](#rfc9449)\]).
 
 - `expires_in` - The lifetime for the access token in seconds. The parameter is REQUIRED. The value SHOULD be kept as low as practically possible.
 
