@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-24
+### Version: 1.0 - draft 01 - 2025-04-29
 
 ## Abstract
 
