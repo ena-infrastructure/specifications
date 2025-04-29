@@ -571,8 +571,6 @@ The following request parameters are REQUIRED for the client to pass to the auth
 
 - `client_id` - The identifier for the client making the request. See [Section 2.2.1, Client Identifiers](#client-identifiers).
 
-- `code_verifier` - See [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange).
-
 Additional request parameters that are specific to each grant type apply and are specified for the respective grant type. See [Section 5, Grant Types](#grant-types).
 
 The authorization server MUST authenticate the client request before proceeding.
