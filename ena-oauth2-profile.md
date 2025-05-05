@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-29
+### Version: 1.0 - draft 01 - 2025-05-05
 
 ## Abstract
 
@@ -233,7 +233,9 @@ Within a pure OAuth 2.0 context, there is no concept of a "client metadata docum
 
 The `redirect_uris` claim is REQUIRED if the client is registered for the `authorization_code` grant type (or any other custom redirect-based flow). If set, at least one URI MUST be provided.
 
-The redirect URIs provided MUST be absolute URIs as defined in Section 4.3 of \[[RFC3986](#rfc3986)\]. Redirect URIs MUST be one of the following:
+The redirect URIs provided MUST be absolute URIs, as defined in Section 4.3 of \[[RFC3986](#rfc3986)\], to prevent mix-up attacks involving clients. See Section 4.1.1 of \[[RFC9700](#rfc9700)\] for further details.
+
+Redirect URIs MUST be one of the following:
 
 - An HTTPS URL,
 
