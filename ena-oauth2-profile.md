@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-04-29
+### Version: 1.0 - draft 01 - 2025-05-05
 
 ## Abstract
 
@@ -33,8 +33,26 @@ Over the years, numerous extensions and features have been introduced, making �
     2.2.2. [Client Registration Metadata](#client-registration-metadata)
 
     2.3. [Connections to Protected Resources](#connections-to-protected-resources)
+    
+    2.4. [Connections to Authorization Servers](#connections-to-authorization-servers)
 
 3. [**Authorization Server Profile**](#authorization-server-profile)
+
+    3.1. [Metadata and Discovery](#metadata-and-discovery)
+
+    3.1.1. [Authorization Server Metadata](#authorization-server-metadata)
+
+    3.1.2. [Authorization Server Metadata Publishing](#authorization-server-metadata-publishing)
+
+    3.2. [Client Registration](#client-registration)
+
+    3.3. [Authorization Server Endpoints](#authorization-server-endpoints)
+
+    3.3.1. [Authorization Endpoint](#authorization-endpoint)
+
+    3.3.2. [Token Endpoint](#token-endpoint)
+
+    3.4. [Configuration of Protected Resources](#configuration-of-protected-resources)
 
 4. [**Protected Resource Profile**](#protected-resource-profile)
 
@@ -71,32 +89,40 @@ Over the years, numerous extensions and features have been introduced, making �
 6. [**Tokens**](#tokens)
 
     6.1. [Access Tokens](#access-tokens)
-
-7. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
-
-    7.1. [General Security Requirements](#general-security-requirements)
-
-    7.2. [Cryptographic Algorithms](#cryptographic-algorithms)
-
-    7.3. [Client Authentication](#client-authentication)
     
-    7.3.1. [Signed JWT for Client Authentication](#signed-jwt-for-client-authentication)
+7. [**Optional Extensions**](#optional-extensions)
 
-    7.3.2. [Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication)
+    7.1. [JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
+    
+    7.2. [PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
 
-    7.4. [OAuth 2.0 Security Mechanisms](#oauth-20-security-mechanisms)
+8. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
 
-    7.5. [Threats and Countermeasures](#threats-and-countermeasures)
+    8.1. [General Security Requirements](#general-security-requirements)
 
-8. [**Requirements for Interoperability**](#requirements-for-interoperability)
+    8.2. [Cryptographic Algorithms](#cryptographic-algorithms)
 
-    8.1. [Defining and Using Scopes](#defining-and-using-scopes)
+    8.3. [Client Authentication](#client-authentication)
+    
+    8.3.1. [Signed JWT for Client Authentication](#signed-jwt-for-client-authentication)
 
-9. [**References**](#references)
+    8.3.2. [Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication)
 
-    9.1. [Normative References](#normative-references)
+    8.4. [OAuth 2.0 Security Mechanisms](#oauth-20-security-mechanisms)
 
-    9.2. [Informational References](#informational-references)
+    8.4.1. [PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange)
+
+    8.5. [Threats and Countermeasures](#threats-and-countermeasures)
+
+9. [**Requirements for Interoperability**](#requirements-for-interoperability)
+
+    9.1. [Defining and Using Scopes](#defining-and-using-scopes)
+
+10. [**References**](#references)
+
+    10.1. [Normative References](#normative-references)
+
+    10.2. [Informational References](#informational-references)
 
 ---
 
@@ -228,11 +254,11 @@ If more than one redirect URI is provided, different domains SHOULD NOT be used.
 
 The `token_endpoint_auth_method` claim is REQUIRED for the client metadata. It gives the client authentication method for accessing the authorization server token endpoint.
 
-Section [7.3](#client-authentication), [Client Authentication](#client-authentication), gives the requirements for how a client authenticates against the authorization server token endpoint. Thus, for clients compliant with this profile the `token_endpoint_auth_method` can be any of the following values:
+[Section 8.3, Client Authentication](#client-authentication), gives the requirements for how a client authenticates against the authorization server token endpoint. Thus, for clients compliant with this profile the `token_endpoint_auth_method` can be any of the following values:
 
-- `private_key_jwt` - See [7.3.1](#signed-jwt-for-client-authentication), [Signed JWT for Client Authentication](#signed-jwt-for-client-authentication), below.
+- `private_key_jwt` - See [8.3.1, Signed JWT for Client Authentication](#signed-jwt-for-client-authentication), below.
 
-- `tls_client_auth` or `self_signed_tls_client_auth` - See [7.3.2](#mutual-tls-for-client-authentication), [Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication), below.<br /><br />If `tls_client_auth` is used, additional claims according to section 2.1.2 of \[[RFC8705](#rfc8705)\] MUST be provided.
+- `tls_client_auth` or `self_signed_tls_client_auth` - See [8.3.2, Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication), below.<br /><br />If `tls_client_auth` is used, additional claims according to Section 2.1.2 of \[[RFC8705](#rfc8705)\] MUST be provided.
 
 > A client operating in a federated context may use different methods for different authorization servers. This is out of scope for this profile and is addressed in \[[ENA.Federation](#ena-federation)\].
 
@@ -243,7 +269,7 @@ Section [7.3](#client-authentication), [Client Authentication](#client-authentic
 
 The `grant_types` claim is an array of grant type strings that the client can use at the token endpoint of an authorization server. The claim is OPTIONAL, and if not present, the `authorization_code` grant type MUST be assumed. 
 
-The client metadata MUST NOT include the `implicit` and `password` grant types among the `grant_types` values. See section [5.5](#prohibited-grant-types), [Prohibited Grant Types](#prohibited-grant-types), below.
+The client metadata MUST NOT include the `implicit` and `password` grant types among the `grant_types` values. See [Section 5.5, Prohibited Grant Types](#prohibited-grant-types), below.
 
 <a name="json-web-key-set"></a>
 ##### 2.2.2.4. JSON Web Key Set
@@ -254,9 +280,9 @@ The client's JSON Web Key Set \[[RFC7517](#rfc7517)\] document, passed by value 
 
 If the client has registered the `private_key_jwt` token endpoint authentication method, or if the client produces signatures in other circumstances, one, but not both, of the `jwks` and `jwks_uri` claims is REQUIRED.
 
-To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter.
+To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter. 
 
-The JWKs provided in the key set MUST adhere to the requirements put in section [7.2](#cryptographic-algorithms), [Cryptographic Algorithms](#cryptographic-algorithms), below.
+The JWKs provided in the key set MUST adhere to the requirements put in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms), below.
 
 <a name="human-readable-client-metadata"></a>
 ##### 2.2.2.5. Human-readable Client Metadata
@@ -269,26 +295,26 @@ Examples:
 
 ```
 {
-  "client_name" : "Example client",
-  "client_name#sv" : "Exampelklienten",
-  "client_name#en" : "Example client",
+  "client_name": "Example client",
+  "client_name#sv": "Exampelklienten",
+  "client_name#en": "Example client",
   ...
-  "policy_uri" : "https://www.example.com/policy",
-  "policy_uri#sv" : "https://www.example.com/policy/sv",
-  "policy_uri#sv" : "https://www.example.com/policy",
+  "policy_uri": "https://www.example.com/policy",
+  "policy_uri#sv": "https://www.example.com/policy/sv",
+  "policy_uri#sv": "https://www.example.com/policy",
   ...
 ```  
 
-For further requirements see section 2.2 of \[[RFC7591](#rfc7591)\].
+For further requirements see Section 2.2 of \[[RFC7591](#rfc7591)\].
 
 <a name="connections-to-protected-resources"></a>
 ### 2.3. Connections to Protected Resources
 
 An OAuth 2.0 client accesses a protected resource by including an access token in its request to the resource server. This section outlines the requirements for how a client compliant with this profile should present an access token in requests to the resource server.
 
-All authorized requests from a client to a resource server MUST be protected by TLS according to section [7.1](#general-security-requirements), [General Security Requirements](#general-security-requirements), below.
+All authorized requests from a client to a resource server MUST be protected by TLS according to [Section 8.1, General Security Requirements](#general-security-requirements), below.
 
-Clients adhering to this profile SHOULD send the access token in the `Authorization` header using the `Bearer` scheme according to section 2.1 of \[[RFC6750](#rfc6750)\].
+Clients adhering to this profile SHOULD send the access token in the `Authorization` header using the `Bearer` scheme according to Section 2.1 of \[[RFC6750](#rfc6750)\].
 
 Example:
 
@@ -300,29 +326,347 @@ ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.tyhVfuz 
 IxCyGYDlkBA7DfyjrqmSHu6pQ2hoZuFqUSLPNY2N0mpHb3nk5K17HWP_3cYHBw7AhHale5wky6-sVA
 ```
 
-Clients MAY send the access token in an HTTP request by including it as a form-encoded content parameter named `access_token`, as defined by section 2.2 of \[[RFC6750](#rfc6750)\].
+Clients MAY send the access token in an HTTP request by including it as a form-encoded content parameter named `access_token`, as defined by Section 2.2 of \[[RFC6750](#rfc6750)\].
 
-Clients MUST NOT include the access token as a URI query parameter (section 2.3 of \[[RFC6750](#rfc6750)\]). The reason is that the access token would be visible in the URL and could be stolen by attackers, for example, from the web browser history. Consequently, a resource server compliant with this profile MUST NOT accept an access token transmitted in a query parameter.
+Clients MUST NOT include the access token as a URI query parameter (Section 2.3 of \[[RFC6750](#rfc6750)\]). The reason is that the access token would be visible in the URL and could be stolen by attackers, for example, from the web browser history. Consequently, a resource server compliant with this profile MUST NOT accept an access token transmitted in a query parameter.
 
-Clients MUST support and be able to process the `WWW-Authenticate` response header field as specified by section 3 of [[RFC6750](#rfc6750)\].
+Clients MUST support and be able to process the `WWW-Authenticate` response header field as specified by Section 3 of [[RFC6750](#rfc6750)\].
+
+<a name="connections-to-authorization-servers"></a>
+### 2.4. Connections to Authorization Servers
+
+> TODO: Write about AS metadata discovery
+
+> TODO: Refer to grants below for authz and token
 
 <a name="authorization-server-profile"></a>
 ## 3. Authorization Server Profile
 
-> Should be able to handle clients registered elsewhere
+All authorization servers compliant with this profile MUST adhere to the security requirements stated in [Section 8, Security Requirements and Considerations](#security-requirements-and-considerations).
 
-> Should support rfc9101?
+<a name="metadata-and-discovery"></a>
+### 3.1. Metadata and Discovery
 
-> https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml
+This section contains requirements on an authorization server's metadata document and how this metadata document is published on a well-known location. 
+
+An authorization server that acts as an OpenID Provider MUST also adhere to Section 5.2, "Discovery Requirements for an OpenID Provider", of \[[OIDC.Sweden.Profile](#oidc-profile)\].
+
+<a name="authorization-server-metadata"></a>
+#### 3.1.1. Authorization Server Metadata
+
+An authorization server compliant with this profile MUST produce a metadata JSON document as specified in Section 2 of \[[RFC8414](#rfc8414)\], with the extensions and clarifications stated in the subsections below. 
+
+An authorization server MAY provide signed metadata as specified in Section 2.1 of \[[RFC8414](#rfc8414)\]. In such cases, the authorization server MUST sign the metadata using one of the mandatory signature algorithms listed in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms).
+
+> Note: Additional requirements for authorization server metadata may be supplied in other profiles.
+
+<a name="issuer-the-authorization-server-entity-identifier"></a>
+##### 3.1.1.1. Issuer - The Authorization Server Entity Identifier
+
+**Metadata claim:** `issuer`
+
+The `issuer` claim is REQUIRED and MUST be a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
+
+The authorization server metadata is published at a location derived from its issuer identifier. See [Section 3.1.2, Authorization Server Metadata Publishing](#authorization-server-metadata-publishing), below. This means that if the authorization server is hosted under a path other than the root, the `issuer` value MUST reflect this. For example, `https://as.example.com/service` would be the correct `issuer` value if the authorization server is deployed under the `/service` path at the `as.example.com` host.
+
+<a name="md-authorization-server-endpoints"></a>
+##### 3.1.1.2. Authorization Server Endpoints
+
+**Metadata claim:** `authorization_endpoint`
+
+The `authorization_endpoint` claim contains the fully qualified URL of the authorization server’s authorization endpoint, as defined in \[[RFC6749](#rfc6749)\]. This claim is REQUIRED unless the authorization server does not support any grant types that make use of the authorization endpoint.
+
+The authorization endpoint URL MUST NOT include a fragment component, but MAY include a query string.
+
+**Metadata claim:** `token_endpoint`
+
+The `token_endpoint` claim contains the fully qualified URL of the authorization server’s token endpoint, as defined in \[[RFC6749](#rfc6749)\]. This claim is REQUIRED.
+
+The token endpoint URL MUST NOT include a fragment component, but MAY include a query string.
+
+The claims `registration_endpoint`, `revocation_endpoint` and `introspection_endpoint` are OPTIONAL, and their presence depends on whether the authorization server supports the corresponding features.
+
+<a name="as-json-web-key-set"></a>
+##### 3.1.1.3. JSON Web Key Set
+
+**Metadata claim:** `jwks_uri`
+
+The `jwks_uri` claim is REQUIRED, and contains an URL to the authorization server's JSON Web Key Set \[[RFC7517](#rfc7517)\] document. This URL MUST use the HTTPS scheme.
+
+The `use` parameter is REQUIRED for all keys in the referenced JWK Set to indicate each key's intended usage.
+
+To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter. 
+
+The JWKs provided in the key set MUST adhere to the requirements put in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms), below.
+
+<a name="as-supported-scopes"></a>
+##### 3.1.1.4. Supported Scopes
+
+**Metadata claim:** `scopes_supported`
+
+The `scopes_supported` claim is REQUIRED and it SHOULD list all scopes supported by the authorization server in a JSON array. Authorization servers MAY choose to omit certain scopes that are client-specific or otherwise not intended for general use.
+
+<a name="as-supported-grant-types"></a>
+##### 3.1.1.5. Supported Grant Types
+
+**Metadata claim:** `grant_types_supported`
+
+The requirements of this profile are the same as those specified in Section 2 of \[[RFC8414](#rfc8414)\], with the following exception:
+
+If the claim is omitted, the default value SHALL be [ "authorization_code" ].
+
+<a name="supported-endpoint-authentication-methods"></a>
+##### 3.1.1.6. Supported Endpoint Authentication Methods
+
+**Metadata claim:** `token_endpoint_auth_methods_supported`
+
+The `token_endpoint_auth_methods_supported` claim is REQUIRED and MUST include `private_key_jwt`. It MAY also include `tls_client_auth` or `self_signed_tls_client_auth`, but MUST NOT include any other methods. See [Section 8.3, Client Authentication](#client-authentication), below.
+
+**Metadata claim:** `revocation_endpoint_auth_methods_supported`
+
+The `revocation_endpoint_auth_methods_supported` claim is REQUIRED if the authorization server supports token revocation (i.e., if the `revocation_endpoint` claim is included). If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_methods_supported` claim (see above).
+
+**Metadata claim:** `introspection_endpoint_auth_methods_supported`
+
+The `introspection_endpoint_auth_methods_supported` claim is REQUIRED if the authorization server supports token introspection (i.e., if the `introspection_endpoint` claim is included). If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_methods_supported` claim (see above).
+
+<a name="supported-authentication-signing-algorithms-for-endpoints"></a>
+##### 3.1.1.7. Supported Authentication Signing Algorithms for Endpoints
+
+**Metadata claim:** `token_endpoint_auth_signing_alg_values_supported`
+
+The `token_endpoint_auth_signing_alg_values_supported` claim is REQUIRED, and its contents MUST conform to the signature requirements specified in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms).
+
+**Metadata claim:** `revocation_endpoint_auth_methods_supported`
+
+The `revocation_endpoint_auth_methods_supported` is REQUIRED if `revocation_endpoint_auth_methods_supported` is assigned. If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` claim (see above).
+
+**Metadata claim:** `introspection_endpoint_auth_methods_supported`
+
+The `introspection_endpoint_auth_methods_supported` is REQUIRED if `introspection_endpoint_auth_methods_supported` is assigned. If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` claim (see above).
+
+<a name="supported-code-challenge-methods"></a>
+##### 3.1.1.8. Supported Code Challenge Methods
+
+**Metadata claim:** `code_challenge_methods_supported`
+
+An authorization server compliant with this profile MUST support the PKCE extension (see [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange). Therefore, the `code_challenge_methods_supported` claim is REQUIRED and MUST include the `S256` challenge method. The `plain` challenge method MUST NOT be supported.
+
+<a name="supported-ui-locales"></a>
+##### 3.1.1.9. Supported UI Locales
+
+**Metadata claim:** `ui_locales_supported`
+
+The `ui_locales_supported` claim SHOULD be present and include Swedish (`sv`) and English (`en`).
+
+<a name="authorization-server-metadata-example"></a>
+##### 3.1.1.10. Authorization Server Metadata Example
+
+Below is an example of the metadata document for an authorization server:
+
+```json
+{
+  "issuer": "https://as.example.com/",
+  "authorization_endpoint": "https://as.example.com/authorize",
+  "token_endpoint": "https://as.example.com/token",
+  "jwks_uri": "https://as.example.com/jwk",
+  "scopes_supported": [
+    "https://server1.example.com/api/read",
+    "https://server1.example.com/api/write",
+    "https://server2.example.com/read",
+    "https://server2.example.com/write"
+  ],
+  "response_types_supported": [ "code", "token" ],
+  "grant_types_supported": [ "authorization_code", "refresh_token", "client_credentials" ],  
+  "token_endpoint_auth_methods_supported": [ "private_key_jwt" ],
+  "token_endpoint_auth_signing_alg_values_supported": [
+    "RS256", "RS384", "RS512", "ES256", "ES384", "ES512"
+  ],
+  "service_documentation": "https://as.example.com/docs/register",
+  "ui_locales_supported": [ "sv", "en" ], 
+  "op_policy_uri": "https://as.example.com/docs/policy",
+  "code_challenge_methods_supported": [ "S256" ]  
+}
+```
+
+> Note: If the authorization server also acts as an OpenID Provider, additional metadata claims will appear in the metadata document.
+
+<a name="authorization-server-metadata-publishing"></a>
+#### 3.1.2. Authorization Server Metadata Publishing
+
+Section 3 of \[[RFC8414](#rfc8414)\] states the following:
+
+> "Authorization servers supporting metadata MUST make a JSON document containing metadata as specified in Section 2 available at a path formed by inserting a well-known URI string into the authorization server's issuer identifier between the host component and the path component, if any. By default, the well-known URI string used is `/.well-known/oauth-authorization-server`.".
+
+For an authorization server whose issuer identifier has no path component, for example, `https://as.example.com`, the resulting discovery URL is:
+
+```
+https://as.example.com/.well-known/oauth-authorization-server
+```
+
+However, if the authorization server is not deployed at the root but instead under a path such as `/service`, its issuer identifier becomes `https://as.example.com/service`. In this case, according to \[[RFC8414](#rfc8414)\], the discovery URL must be:
+
+```
+https://as.example.com/.well-known/oauth-authorization-server/service
+```
+
+This construction may lead to practical deployment challenges, as it requires control over the root path of the host.
+
+Section 4.1 of \[[OpenID.Discovery](#openid-discovery)\] specifies a more pragmatic approach for constructing the discovery URL: the well-known URI suffix is appended to the issuer identifier. Using this method, an authorization server with the issuer https://as.example.com/service would publish its metadata at:
+
+```
+https://as.example.com/service/.well-known/oauth-authorization-server
+```
+
+This approach is more practical but does not fully comply with the requirements in Section 3 of \[[RFC8414](#rfc8414)\]. Therefore, this profile defines the following requirements:
+
+- An authorization server deployed directly under the host root MUST publish its metadata in accordance with Section 3 of \[[RFC8414](#rfc8414)\].
+
+- An authorization server with a path component in its issuer identifier (i.e., not deployed at the root) SHOULD publish its metadata as specified in Section 3 of \[[RFC8414](#rfc8414)\]. If this is not feasible, it MUST publish metadata as described in Section 4.1 of \[[OpenID.Discovery](#openid-discovery)\], using `/.well-known/oauth-authorization-server` as the well-known URI suffix.
+
+- Consumers of authorization server metadata MUST attempt discovery using all possible locations, as described in Section 5 (“Compatibility Notes”) of \[[RFC8414](#rfc8414)\]. This includes support for legacy URIs such as `/.well-known/openid-configuration`.
+
+<a name="client-registration"></a>
+### 3.2. Client Registration
+
+This profile does not specify how a client is registered with the authorization server. Registration may be performed statically, via an out-of-band procedure, through dynamic registration as specified in \[[RFC7591](#rfc7591)\], or by resolving client metadata using OpenID Federation.
+
+An authorization server compliant with this profile MUST ensure that the metadata of a client being registered complies with the requirements stated in [Section 2.2.2, Client Registration Metadata](#client-registration-metadata), and MUST NOT complete the registration if the metadata does not comply.
+
+If a client identifier is assigned by the authorization server at registration time, the identifier MUST comply with the requirements stated in [Section 2.2.1, Client Identifiers](#client-identifiers).
+
+An authorization server compliant with this profile MUST support the registration of a client that already has an assigned client identifier.
+
+<a name="authorization-server-endpoints"></a>
+### 3.3. Authorization Server Endpoints
+
+This section outlines the general requirements for the HTTP endpoints exposed by an authorization server compliant with this profile. Specific requirements regarding the messages received on these endpoints are detailed in [Section 5, Grant Types](#grant-types).
+
+<a name="authorization-endpoint"></a>
+#### 3.3.1. Authorization Endpoint
+
+Authorization servers compliant with this profile MUST adhere to the requirements from Section 3.1, "Authorization Endpoint", of \[[RFC6749](#rfc6749)\], with the following extensions:
+
+The authorization endpoint MUST be protected by TLS according to [Section 8.1, General Security Requirements](#general-security-requirements).
+
+The authorization server MUST NOT support CORS (Cross-Origin Resource Sharing) at the authorization endpoint since the client does not access this endpoint directly.
+
+An authorization server that redirects a request MUST NOT use the 307 HTTP status code. If an HTTP redirection is used (as opposed to JavaScript-based redirection), the authorization server SHOULD use the 303 HTTP status code.
+
+> This requirement exists because, at the authorization endpoint, the authorization server may prompt the user to enter credentials into a form, which is then submitted via a POST request. After verifying the credentials, the authorization server redirects the user agent to the client’s redirect URI. If a 307 status code were used for redirection, the user agent would incorrectly reuse the POST method, potentially sending the user’s credentials directly to the client. See Section 15.4.8 of \[[RFC9110](#rfc9110)\].
+
+See [Section 5.1.1, Authorization Requests](#authorization-requests) for requirements specific to the authorization code grant.
+
+<a name="token-endpoint"></a>
+#### 3.3.2. Token Endpoint
+
+Authorization servers compliant with this profile MUST adhere to the requirements from Section 3.2, "Token Endpoint" of \[[RFC6749](#rfc6749)\], with the extension that clients MUST authenticate using one of the methods listed in [Section 8.3, Client Authentication](#client-authentication) when making requests to the token endpoint.
+
+The token endpoint is used by different grant types, and specific requirements for each profiled grant type are listed in [Section 5, Grant Types](#grant-types). The subsections below list the general requirements for token requests and responses.
+
+<a name="token-requests"></a>
+##### 3.3.2.1. Token Requests
+
+The following request parameters are REQUIRED for the client to pass to the authorization server’s endpoint, regardless of the grant type being used:
+
+- `grant_type` - The grant type used for the particular request. See [Section 5, Grant Types](#grant-types) for the different grant types specified in this profile.
+
+- `client_id` - The identifier for the client making the request. See [Section 2.2.1, Client Identifiers](#client-identifiers).
+
+Additional request parameters that are specific to each grant type apply and are specified for the respective grant type. See [Section 5, Grant Types](#grant-types).
+
+The authorization server MUST authenticate the client request before proceeding.
+
+Here is an example of an access token request using an authorization code, where `private_key_jwt` is used for client authentication:
+
+```
+POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&code=z9X8v7W6u5Ts4Rq3P2oNmL
+&redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcallback
+&code_verifier=a7b6c5d4e3f2g1h0i9j8k7l6m5n4o3p2q1r0s9t8u7v6w5x4y3z2a1b0c9d8e7f6
+&client_id=https%3A%2F%2Fclient.example.com
+&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer
+&client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVudC5leGFtcGxlL \
+mNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcy5leGFtcGxlLmNvbSIsI \
+mV4cCI6MTY4MDAwMDAwMCwiaWF0IjoxNjgwMDAwMDAwLCJqdGkiOiJxa2x3ZWZka2pmcWx1cm1jdHZuZXZ5bXhwIn0.RGViX \
+2V4YW1wbGVTaWduYXR1cmVIZXJl
+```
+
+<a name="token-responses"></a>
+##### 3.3.2.2. Token Responses
+
+After the authorization server has successfully processed an access token request, issued an access token, and optionally a refresh token, it creates an HTTP response with status 200 and uses the `application/json` media type.
+
+Entities compliant with this profile MUST adhere to Section 5.1, “Successful Response,” of \[[RFC6749](#rfc6749)\] with the extensions and clarifications listed below.
+
+The following parameter requirements apply for authorization servers compliant with this profile:
+
+- `access_token` - The newly issued access token. This parameter is REQUIRED.
+
+- `token_type` - The type of access token issued. This parameter is REQUIRED. This profile allows the values "Bearer" (see \[[RFC6750](#rfc6750)\]) or "DPoP" (see \[[RFC9449](#rfc9449)\]).
+
+- `expires_in` - The lifetime for the access token in seconds. The parameter is REQUIRED. The value SHOULD be kept as low as practically possible.
+
+- `refresh_token` - A refresh token. This parameter is OPTIONAL.<br /><br />An authorization server compliant with this profile MUST NOT issue a refresh token if no user is involved (for example, the `client_credentials` grant), or if the user does not have a direct relationship with the authorization server (for example, the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant).
+
+- `scope` - The issued scope(s). Section 5.1 of \[[RFC6749](#rfc6749)\] states that the parameter is OPTIONAL if the scopes granted are the same as those requested by the client, and REQUIRED otherwise. This profile states that the inclusion of the parameter is RECOMMENDED, regardless of which scopes were granted.
+
+Example of an access token (in the form of a signed JWT) issued along with a refresh token:
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwiYXVkIjoiY2xpZW50LmV4YW \ 
+                   1wbGUuY29tIiwiaWF0IjoxNjgwMDAwMDAwLCJleHAiOjE2ODAwMDM2MDB9.XYZ123abc456DEF789ghiJKL \
+                   012mno345PQR678stu",
+  "token_type": "Bearer",
+  "expires_in": 600,
+  "refresh_token": "d8p4QwF3a1Lb6Xt9WcG0Zv",
+  "scope": "read write"
+}
+```
+
+<a name="error-responses"></a>
+##### 3.3.2.3. Error Responses
+
+Authorization servers compliant with this profile MUST adhere to Section 5.2, “Error Response,” of \[[RFC6749](#rfc6749)\], with the following additions:
+
+It is RECOMMENDED that the `error_description` parameter be included in the error response to provide additional information about the error. The text provided MUST NOT reveal sensitive information, violate user privacy, or expose details that could be useful to an attacker.
+
+Example:
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json;charset=UTF-8
+Cache-Control: no-store
+Pragma: no-cache
+
+{
+  "error": "invalid_client",
+  "error_description": "The client authentication method is not supported"
+}
+```
+
+<a name="configuration-of-protected-resources"></a>
+### 3.4. Configuration of Protected Resources
+
+> TODO: Write about how an authorization server should configure protection of resources. 
 
 <a name="protected-resource-profile"></a>
 ## 4. Protected Resource Profile
 
 An OAuth 2.0 resource server hosting a protected resource grants access to clients if they present a valid access token with the appropriate scope. The resource server trusts an authorization server to authenticate users and, optionally, obtain their consent before issuing an access token to a client. This section outlines the interoperability and security requirements for OAuth 2.0 protected resources and resource servers.
 
-A resource server compliant with this profile MUST accept access tokens passed in the `Authorization` header as a bearer token, as specified in section 2.1 of \[[RFC6750](#rfc6750)\], and access tokens passed as form-encoded content parameters, as specified in section 2.2 of \[[RFC6750](#rfc6750)\].
+A resource server compliant with this profile MUST accept access tokens passed in the `Authorization` header as a bearer token, as specified in Section 2.1 of \[[RFC6750](#rfc6750)\], and access tokens passed as form-encoded content parameters, as specified in Section 2.2 of \[[RFC6750](#rfc6750)\].
 
-Resource servers MUST NOT accept access tokens passed in a URI query parameter (section 2.3 of \[[RFC6750](#rfc6750)\]).
+Resource servers MUST NOT accept access tokens passed in a URI query parameter (Section 2.3 of \[[RFC6750](#rfc6750)\]).
 
 Depending on how a resource server services a request, it MAY also act as an OAuth 2.0 client when it needs to invoke underlying protected resources as part of its processing. This pattern may involve features such as "token exchange", which is not covered in this profile. 
 
@@ -335,9 +679,9 @@ This profile specifies access tokens only in the form of JWT bearer tokens. This
 
 Note: This section does not specify any requirements regarding "Token introspection", \[[RFC7662](https://datatracker.ietf.org/doc/html/rfc7662)\], as it is out of scope for this profile.
 
-Resource servers compliant with this profile MUST validate JWT access tokens as specified in section 4 of \[[RFC9068](#rfc9068)\], with the following modifications and clarifications:
+Resource servers compliant with this profile MUST validate JWT access tokens as specified in Section 4 of \[[RFC9068](#rfc9068)\], with the following modifications and clarifications:
 
-* An access token that is not signed according to the requirements specified in section [6.1](#access-tokens) below, MUST be rejected.
+* An access token that is not signed according to the requirements specified in [Section 6.1](#access-tokens) below, MUST be rejected.
 
 * Reuse of access tokens across multiple authorized requests MAY be allowed, provided the token remains valid and the protected resource does not enforce single-use semantics. Resource servers that require high assurance or non-repudiation may choose to enforce non-reusability of tokens using the `jti` claim as part of a replay detection strategy.<br /><br />If a protected resource does not permit reuse of access tokens, the resource server MUST maintain a cache of previously received JWT IDs (`jti`). If an access token’s `jti` claim is found in the cache and has not expired, the access token MUST be rejected. See Section 4.1.7 of \[[RFC7519](#rfc7519)\] for the definition of the `jti` claim.
 
@@ -345,7 +689,7 @@ Resource servers compliant with this profile MUST validate JWT access tokens as 
     
     - A cached `jti` value is considered expired when the JWT from which it was extracted is no longer valid, based on its `exp` claim.
     
-* If a protected resource's access rules are based on scopes, the JWT MUST include the `scope` claim (see section 2.2.3 of \[[RFC9068](#rfc9068)\]) with an appropriate scope value. Otherwise, the access token MUST be rejected.
+* If a protected resource's access rules are based on scopes, the JWT MUST include the `scope` claim (see Section 2.2.3 of \[[RFC9068](#rfc9068)\]) with an appropriate scope value. Otherwise, the access token MUST be rejected.
 
 <a name="resource-server-error-responses"></a>
 ### 4.2. Resource Server Error Responses
@@ -361,7 +705,7 @@ WWW-Authenticate: Bearer realm="example",
                   error_description="The access token has expired"
 ```
 
-To ensure interoperability, a resource server compliant with this profile SHOULD NOT use any error codes other than those specified in section 3.1 of \[[RFC6750](#rfc6750)\].
+To ensure interoperability, a resource server compliant with this profile SHOULD NOT use any error codes other than those specified in Section 3.1 of \[[RFC6750](#rfc6750)\].
 
 If an access token is rejected due to insufficient scope(s), it is RECOMMENDED to include the scope attribute in the `WWW-Authenticate` header of the error response. This attribute MUST specify the required scope(s) for accessing the protected resource.
 
@@ -382,7 +726,7 @@ A protected resource compliant with this profile MUST have a Resource Identifier
 
 If the protected resource is functioning in a multi-domain, or federative, context, its identifier MUST be globally unique.
 
-A protected resource MAY support publication of its metadata according to the draft "OAuth 2.0 Protected Resource Metadata", \[[Protected.Resource.Metadata](#protected-resource-metadata)\].
+A protected resource MAY support publication of its metadata according to "OAuth 2.0 Protected Resource Metadata", \[[RFC9728](#rfc9728)\].
 
 It is RECOMMENDED that a protected resource be assigned a resource identifier that corresponds to the URL at which it exposes its service.
 
@@ -446,9 +790,9 @@ The endpoints on server1 do not share the same access rules and should therefore
 
 This following grant types MUST NOT be used or supported by entities compliant with this profile:
 
-- The Implicit Grant, as specified in section 4.2 of \[[RFC6749](#rfc6749)\].
+- The Implicit Grant, as specified in Section 4.2 of \[[RFC6749](#rfc6749)\].
 
-- The Resource Owner Password Credentials Grant, as specified in section 4.3 of \[[RFC6749](#rfc6749)\].
+- The Resource Owner Password Credentials Grant, as specified in Section 4.3 of \[[RFC6749](#rfc6749)\].
 
 <a name="tokens"></a>
 ## 6. Tokens
@@ -462,20 +806,35 @@ This following grant types MUST NOT be used or supported by entities compliant w
 
 - `azp`?
 
+<a name="optional-extensions"></a>
+## 7. Optional Extensions
+
+This section provides profiles of OAuth 2.0 extensions that may be used by entities compliant with this profile.
+
+<a name="jar-jwt-secured-authorization-requests"></a>
+### 7.1. JAR - JWT-Secured Authorization Requests
+
+\[[RFC9101](#rfc9101)\]
+    
+<a name="par-oauth-2-0-pushed-authorization-requests"></a>
+### 7.2. PAR - OAuth 2.0 Pushed Authorization Requests
+
+\[[RFC9126](#rfc9126)\]
+
 <a name="security-requirements-and-considerations"></a>
-## 7. Security Requirements and Considerations
+## 8. Security Requirements and Considerations
 
 <a name="general-security-requirements"></a>
-### 7.1. General Security Requirements
+### 8.1. General Security Requirements
 
 All transactions MUST be protected in transit by TLS as described in \[[NIST.800-52.Rev2](#nist800-52)\].
 
 A party acting as a client in a TLS handshake MUST successfully validate the TLS certificate chain up to a trusted root before proceeding with the transaction.
 
-All parties compliant with this profile MUST conform to applicable recommendations in section 16, "Security Considerations" of \[[RFC6749](#rfc6749)\] and those found in "Best Current Practice for OAuth 2.0 Security", \[[RFC9700](#rfc9700)\].
+All parties compliant with this profile MUST conform to applicable recommendations in Section 16, "Security Considerations" of \[[RFC6749](#rfc6749)\] and those found in "Best Current Practice for OAuth 2.0 Security", \[[RFC9700](#rfc9700)\].
 
 <a name="cryptographic-algorithms"></a>
-### 7.2. Cryptographic Algorithms
+### 8.2. Cryptographic Algorithms
 
 This section lists the requirements for cryptographic algorithm support for being compliant with
 this profile.
@@ -520,22 +879,28 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 **Note:** \[[NIST.800-131A.Rev2](#nist800-131)\] contains a listing of algorithms that must not be used. However, there is a need to explicitly point out that the commonly used algorithm SHA-1 for digests is considered broken and MUST NOT be used or accepted.
 
 <a name="client-authentication"></a>
-### 7.2. Client Authentication
+### 8.3. Client Authentication
 
 <a name="signed-jwt-for-client-authentication"></a>
-#### 7.2.1. Signed JWT for Client Authentication
+#### 8.3.1. Signed JWT for Client Authentication
 
 > `private_key_jwt`, RFC7523
 
 <a name="mutual-tls-for-client-authentication"></a>
-#### 7.2.2. Mutual TLS for Client Authentication
+#### 8.3.2. Mutual TLS for Client Authentication
 
 > RFC8705
 
 `tls_client_auth` or `self_signed_tls_client_auth`.
 
 <a name="oauth-20-security-mechanisms"></a>
-### 7.4. OAuth 2.0 Security Mechanisms
+### 8.4. OAuth 2.0 Security Mechanisms
+
+<a name="pkce-proof-key-for-code-exchange"></a>
+#### 8.4.1. PKCE - Proof Key for Code Exchange
+
+PKCE - RFC7636
+
 
 - PKCE
 - sender constrained tokens
@@ -544,13 +909,13 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 > Sub-chapter about redirects. Open redirector, etc.
 
 <a name="threats-and-countermeasures"></a>
-### 7.5. Threats and Countermeasures
+### 8.5. Threats and Countermeasures
 
 <a name="requirements-for-interoperability"></a>
-## 8. Requirements for Interoperability 
+## 9. Requirements for Interoperability 
 
 <a name="defining-and-using-scopes"></a>
-### 8.1. Defining and Using Scopes
+### 9.1. Defining and Using Scopes
 
 An OAuth 2.0 scope is a mechanism for defining and limiting access to protected resources. It tells the authorization server what level of access the client is requesting, and tells the resource server what access the client has been granted.
 
@@ -590,13 +955,13 @@ It is RECOMMENDED that scope values unique to a single protected resource be con
 
 An authorization server MAY choose to map a unique scope to a different scope value when including scopes in an access token. This can be useful, for example, when the protected resource is a legacy system with hardcoded scope definitions. Referring to the example above, if a client requests the `https://server.example.com/api/read` scope, the resulting JWT access token could instead contain the scope `read`.
 
-However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, [[Protected.Resource.Metadata](#protected-resource-metadata)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
+However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, \[[RFC9728](#rfc9728)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
 
 <a name="references"></a>
-## 9. References
+## 10. References
 
 <a name="normative-references"></a>
-### 9.1. Normative References
+### 10.1. Normative References
 
 <a name="rfc2119"></a>
 **\[RFC2119\]**
@@ -638,6 +1003,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC8414\]**
 > [Jones, M., Sakimura, N., and J. Bradley, "OAuth 2.0 Authorization Server Metadata", RFC 8414, DOI 10.17487/RFC8414, June 2018](https://datatracker.ietf.org/doc/html/rfc8414).
 
+<a name="rfc8615"></a>
+**\[RFC8615\]**
+> [Nottingham, M., "Well-Known Uniform Resource Identifiers (URIs)", RFC 8615, May 2019](https://datatracker.ietf.org/doc/html/rfc8615).
+
 <a name="rfc8705"></a>
 **\[RFC8705\]**
 > [Campbell, B., Bradley, J., Sakimura, N., and T. Lodderstedt, "OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens", RFC 8705, DOI 10.17487/RFC8705, February 2020](https://www.rfc-editor.org/info/rfc8705).
@@ -650,9 +1019,29 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC9068\]**
 > [Bertocci, V., "JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens", RFC 9068, October 2021](https://datatracker.ietf.org/doc/html/rfc9068).
 
+<a name="rfc9101"></a>
+**\[RFC9101\]**
+> [Sakimura, N., Bradley, J., Jones, M., "The OAuth 2.0 Authorization Framework: JWT-Secured Authorization Request (JAR)", RFC9101, August 2021](https://www.rfc-editor.org/info/rfc9101).
+  
+<a name="rfc9110"></a>
+**\[RFC9110\]**
+> [Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke, Ed., "HTTP Semantics", STD 97, RFC 9110, DOI 10.17487/RFC9110, June 2022](https://www.rfc-editor.org/info/rfc9110).
+
+<a name="rfc9126"></a>
+**\[RFC9126\]**
+> [Lodderstedt, T., Campbell, B., Sakimura, N., Tonge, D., and F. Skokan, "OAuth 2.0 Pushed Authorization Requests", RFC 9126, DOI 10.17487/RFC9126, September 2021](https://www.rfc-editor.org/info/rfc9126).
+
+<a name="rfc9449"></a>
+**\[RFC9449\]**
+> [Fett, D., Campbell, B., Bradley, J., Lodderstedt, T., Jones, M., and D. Waite, "OAuth 2.0 Demonstrating Proof of Possession (DPoP)", RFC 9449, DOI 10.17487/RFC9449, September 2023](https://www.rfc-editor.org/info/rfc9449).
+
 <a name="rfc9700"></a>
 **\[RFC9700\]**
 > [Lodderstedt, T., Bradley, J., Labunets, A., Fett, D., "Best Current Practice for OAuth 2.0 Security", RFC 9700, January 2025](https://datatracker.ietf.org/doc/html/rfc9700).
+
+<a name="rfc9728"></a>
+**\[RFC9728\]**
+> [Jones, M.B., Hunt, P., Parecki. A., "OAuth 2.0 Protected Resource Metadata", RFC 9728, April 2025](https://datatracker.ietf.org/doc/html/rfc9728).
 
 <a name="nist800-52"></a>
 **\[NIST.800-52.Rev2\]**
@@ -662,8 +1051,24 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[NIST.800-131A.Rev2\]**
 > [NIST Special Publication 800-131A Revision 2, "Transitioning the Use of Cryptographic Algorithms and Key Lengths"](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-131Ar2.pdf)
 
+<a name="oidc-profile"></a>
+**\[OIDC.Sweden.Profile\]**
+> [The Swedish OpenID Connect Profile - Version 1.0](https://www.oidc.se/specifications/swedish-oidc-profile-1_0.html).
+
+<a name="openid-discovery"></a>
+**\[OpenID.Discovery\]**
+> [Sakimura, N., Bradley, J., Jones, M., and E. Jay, "OpenID Connect Discovery 1.0 incorporating errata set 2", December 2023](https://openid.net/specs/openid-connect-discovery-1_0.html).
+
+<a name="iana-pars"></a>
+**\[IANA.Pars\]**
+> [IANA - OAuth Parameters](https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml).
+
 <a name="informational-references"></a>
-### 9.2. Informational References
+### 10.2. Informational References
+
+<a name="openid-discovery"></a>
+**\[OpenID.Discovery\]**
+> [Sakimura, N., Bradley, J., Jones, M., and E. Jay, "OpenID Connect Discovery 1.0 incorporating errata set 2", December 2023](https://openid.net/specs/openid-connect-discovery-1_0.html).
 
 <a name="openid-federation"></a>
 **\[OpenID.Federation\]**
@@ -673,8 +1078,5 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[ENA.Federation\]**
 > [Ena OAuth 2.0 Federation Interoperability Profile](ena-oauth2-federation.md).
 
-<a name="protected-resource-metadata"></a>
-**\[Protected.Resource.Metadata\]**
-> [Jones, M.B., Hunt, P., Parecki, A., draft-ietf-oauth-resource-metadata-13, October 2024, "OAuth 2.0 Protected Resource Metadata"](https://datatracker.ietf.org/doc/draft-ietf-oauth-resource-metadata/).
  
 
