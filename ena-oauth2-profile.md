@@ -106,15 +106,21 @@ Over the years, numerous extensions and features have been introduced, making �
     
     8.3.1. [Signed JWT for Client Authentication](#signed-jwt-for-client-authentication)
 
-    8.3.2. [Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication)
+    8.3.2. [Mutual-TLS for Client Authentication](#mutual-tls-for-client-authentication)
 
     8.4. [OAuth 2.0 Security Mechanisms](#oauth-20-security-mechanisms)
 
     8.4.1. [PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange)
+    
+    8.4.2. [DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession)
+
+    8.4.3. [Binding Access Tokens to Client Certificates using Mutual-TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls)
 
     8.5. [Threats and Countermeasures](#threats-and-countermeasures)
     
     8.5.1. [Injection of Authorization Code](#injection-of-authorization-code)
+
+    8.5.2. [Token Theft and Leakage](#token-theft-and-leakage)
 
 9. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
@@ -222,18 +228,18 @@ A client registered with multiple authorization servers MUST use the same client
 <a name="client-registration-metadata"></a>
 #### 2.2.2. Client Registration Metadata
 
-Section 2 of "OAuth 2.0 Dynamic Client Registration Protocol", \[[RFC7591](#rfc7591)\], lists client metadata claims, and entities compliant with this profile MUST adhere to the requirements in that section, with the extensions and clarifications stated in the subsections below.
+Section 2 of "OAuth 2.0 Dynamic Client Registration Protocol", \[[RFC7591](#rfc7591)\], lists client metadata parameters, and entities compliant with this profile MUST adhere to the requirements in that section, with the extensions and clarifications stated in the subsections below.
 
-Within a pure OAuth 2.0 context, there is no concept of a "client metadata document". The OAuth 2.0 specifications address how a client is registered with an authorization server, and if a client is registered with multiple authorization servers, the registration data may vary between them. Thus, the claims in Section 2 of \[[RFC7591](#rfc7591)\] should be regarded as client registration metadata for a particular registration, rather than as a client metadata document.
+Within a pure OAuth 2.0 context, there is no concept of a "client metadata document". The OAuth 2.0 specifications address how a client is registered with an authorization server, and if a client is registered with multiple authorization servers, the registration data may vary between them. Thus, the parameters in Section 2 of \[[RFC7591](#rfc7591)\] should be regarded as client registration metadata for a particular registration, rather than as a client metadata document.
 
 > \[[ENA.Federation](#ena-federation)\] specifies requirements for a client producing a metadata document for use within a federation.
 
 <a name="redirect-uris"></a>
 ##### 2.2.2.1. Redirect URIs
 
-**Metadata claim:** `redirect_uris`
+**Metadata parameter:** `redirect_uris`
 
-The `redirect_uris` claim is REQUIRED if the client is registered for the `authorization_code` grant type (or any other custom redirect-based flow). If set, at least one URI MUST be provided.
+The `redirect_uris` parameter is REQUIRED if the client is registered for the `authorization_code` grant type (or any other custom redirect-based flow). If set, at least one URI MUST be provided.
 
 The redirect URIs provided MUST be absolute URIs, as defined in Section 4.3 of \[[RFC3986](#rfc3986)\], to prevent mix-up attacks involving clients. See Section 4.1.1 of \[[RFC9700](#rfc9700)\] for further details.
 
@@ -252,35 +258,35 @@ If more than one redirect URI is provided, different domains SHOULD NOT be used.
 <a name="token-endpoint-authentication-method"></a>
 ##### 2.2.2.2. Token Endpoint Authentication Method
 
-**Metadata claim:** `token_endpoint_auth_method`
+**Metadata parameter:** `token_endpoint_auth_method`
 
-The `token_endpoint_auth_method` claim is REQUIRED for the client metadata. It gives the client authentication method for accessing the authorization server token endpoint.
+The `token_endpoint_auth_method` parameter is REQUIRED for the client metadata. It gives the client authentication method for accessing the authorization server token endpoint.
 
 [Section 8.3, Client Authentication](#client-authentication), gives the requirements for how a client authenticates against the authorization server token endpoint. Thus, for clients compliant with this profile the `token_endpoint_auth_method` can be any of the following values:
 
 - `private_key_jwt` - See [8.3.1, Signed JWT for Client Authentication](#signed-jwt-for-client-authentication), below.
 
-- `tls_client_auth` or `self_signed_tls_client_auth` - See [8.3.2, Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication), below.<br /><br />If `tls_client_auth` is used, additional claims according to Section 2.1.2 of \[[RFC8705](#rfc8705)\] MUST be provided.
+- `tls_client_auth` or `self_signed_tls_client_auth` - See [8.3.2, Mutual-TLS for Client Authentication](#mutual-tls-for-client-authentication), below.<br /><br />If `tls_client_auth` is used, additional parameters according to Section 2.1.2 of \[[RFC8705](#rfc8705)\] MUST be provided.
 
 > A client operating in a federated context may use different methods for different authorization servers. This is out of scope for this profile and is addressed in \[[ENA.Federation](#ena-federation)\].
 
 <a name="token-endpoint-grant-types"></a>
 ##### 2.2.2.3. Token Endpoint Grant Types
 
-**Metadata claim:** `grant_types`
+**Metadata parameter:** `grant_types`
 
-The `grant_types` claim is an array of grant type strings that the client can use at the token endpoint of an authorization server. The claim is OPTIONAL, and if not present, the `authorization_code` grant type MUST be assumed. 
+The `grant_types` parameter is an array of grant type strings that the client can use at the token endpoint of an authorization server. The parameter is OPTIONAL, and if not present, the `authorization_code` grant type MUST be assumed. 
 
 The client metadata MUST NOT include the `implicit` and `password` grant types among the `grant_types` values. See [Section 5.5, Prohibited Grant Types](#prohibited-grant-types), below.
 
 <a name="json-web-key-set"></a>
 ##### 2.2.2.4. JSON Web Key Set
 
-**Metadata claim:** `jwks` or `jwks_uri`
+**Metadata parameter:** `jwks` or `jwks_uri`
 
 The client's JSON Web Key Set \[[RFC7517](#rfc7517)\] document, passed by value or reference (URI).
 
-If the client has registered the `private_key_jwt` token endpoint authentication method, or if the client produces signatures in other circumstances, one, but not both, of the `jwks` and `jwks_uri` claims is REQUIRED.
+If the client has registered the `private_key_jwt` token endpoint authentication method, or if the client produces signatures in other circumstances, one, but not both, of the `jwks` and `jwks_uri` parameters is REQUIRED.
 
 To facilitate a smooth key rollover, each JWK of the referenced document SHOULD include a `kid` parameter. 
 
@@ -291,7 +297,7 @@ The JWKs provided in the key set MUST adhere to the requirements put in [Section
 
 Client metadata values intended for human consumption, either directly or via reference (URIs), SHOULD be provided in both English and Swedish using language tags according to BCP 47, \[[RFC5646](#rfc5646)\].
 
-For maximum interoperability, it is RECOMMENDED to also include claim values without language tags. This profile does not specify which language should be used as the default.
+For maximum interoperability, it is RECOMMENDED to also include parameter values without language tags. This profile does not specify which language should be used as the default.
 
 Examples:
 
@@ -303,11 +309,24 @@ Examples:
   ...
   "policy_uri": "https://www.example.com/policy",
   "policy_uri#sv": "https://www.example.com/policy/sv",
-  "policy_uri#sv": "https://www.example.com/policy",
+  "policy_uri#en": "https://www.example.com/policy",
   ...
 ```  
 
 For further requirements see Section 2.2 of \[[RFC7591](#rfc7591)\].
+
+<a name="client-md-extensions"></a>
+##### 2.2.2.6. Extensions
+
+This section contains metadata parameters for optional OAuth 2.0 extensions that MAY be supported by a client.
+
+**Metadata parameter:** `dpop_bound_access_tokens`
+
+A client that always uses DPoP for token requests MUST register the `dpop_bound_access_tokens` parameter and set its value to `true`. See [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and Section 5.2 of \[[RFC9449](#rfc9449)\].
+
+**Metadata parameter:** `tls_client_certificate_bound_access_tokens`
+
+A client that will requests mutual-TLS client certificate-bound access tokens MUST register the   `tls_client_certificate_bound_access_tokens` parameter and set its value to `true`. See Section 3.4 of \[[RFC8705](#rfc8705)\].
 
 <a name="connections-to-protected-resources"></a>
 ### 2.3. Connections to Protected Resources
@@ -365,35 +384,35 @@ An authorization server MAY provide signed metadata as specified in Section 2.1 
 <a name="issuer-the-authorization-server-entity-identifier"></a>
 ##### 3.1.1.1. Issuer - The Authorization Server Entity Identifier
 
-**Metadata claim:** `issuer`
+**Metadata parameter:** `issuer`
 
-The `issuer` claim is REQUIRED and MUST be a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
+The `issuer` parameter is REQUIRED and MUST be a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
 
 The authorization server metadata is published at a location derived from its issuer identifier. See [Section 3.1.2, Authorization Server Metadata Publishing](#authorization-server-metadata-publishing), below. This means that if the authorization server is hosted under a path other than the root, the `issuer` value MUST reflect this. For example, `https://as.example.com/service` would be the correct `issuer` value if the authorization server is deployed under the `/service` path at the `as.example.com` host.
 
 <a name="md-authorization-server-endpoints"></a>
 ##### 3.1.1.2. Authorization Server Endpoints
 
-**Metadata claim:** `authorization_endpoint`
+**Metadata parameter:** `authorization_endpoint`
 
-The `authorization_endpoint` claim contains the fully qualified URL of the authorization server’s authorization endpoint, as defined in \[[RFC6749](#rfc6749)\]. This claim is REQUIRED unless the authorization server does not support any grant types that make use of the authorization endpoint.
+The `authorization_endpoint` parameter contains the fully qualified URL of the authorization server’s authorization endpoint, as defined in \[[RFC6749](#rfc6749)\]. This parameter is REQUIRED unless the authorization server does not support any grant types that make use of the authorization endpoint.
 
 The authorization endpoint URL MUST NOT include a fragment component, but MAY include a query string.
 
-**Metadata claim:** `token_endpoint`
+**Metadata parameter:** `token_endpoint`
 
-The `token_endpoint` claim contains the fully qualified URL of the authorization server’s token endpoint, as defined in \[[RFC6749](#rfc6749)\]. This claim is REQUIRED.
+The `token_endpoint` parameter contains the fully qualified URL of the authorization server’s token endpoint, as defined in \[[RFC6749](#rfc6749)\]. This parameter is REQUIRED.
 
 The token endpoint URL MUST NOT include a fragment component, but MAY include a query string.
 
-The claims `registration_endpoint`, `revocation_endpoint` and `introspection_endpoint` are OPTIONAL, and their presence depends on whether the authorization server supports the corresponding features.
+The parameters `registration_endpoint`, `revocation_endpoint` and `introspection_endpoint` are OPTIONAL, and their presence depends on whether the authorization server supports the corresponding features.
 
 <a name="as-json-web-key-set"></a>
 ##### 3.1.1.3. JSON Web Key Set
 
-**Metadata claim:** `jwks_uri`
+**Metadata parameter:** `jwks_uri`
 
-The `jwks_uri` claim is REQUIRED, and contains an URL to the authorization server's JSON Web Key Set \[[RFC7517](#rfc7517)\] document. This URL MUST use the HTTPS scheme.
+The `jwks_uri` parameter is REQUIRED, and contains an URL to the authorization server's JSON Web Key Set \[[RFC7517](#rfc7517)\] document. This URL MUST use the HTTPS scheme.
 
 The `use` parameter is REQUIRED for all keys in the referenced JWK Set to indicate each key's intended usage.
 
@@ -404,65 +423,82 @@ The JWKs provided in the key set MUST adhere to the requirements put in [Section
 <a name="as-supported-scopes"></a>
 ##### 3.1.1.4. Supported Scopes
 
-**Metadata claim:** `scopes_supported`
+**Metadata parameter:** `scopes_supported`
 
-The `scopes_supported` claim is REQUIRED and it SHOULD list all scopes supported by the authorization server in a JSON array. Authorization servers MAY choose to omit certain scopes that are client-specific or otherwise not intended for general use.
+The `scopes_supported` parameter is REQUIRED and it SHOULD list all scopes supported by the authorization server in a JSON array. Authorization servers MAY choose to omit certain scopes that are client-specific or otherwise not intended for general use.
 
 <a name="as-supported-grant-types"></a>
 ##### 3.1.1.5. Supported Grant Types
 
-**Metadata claim:** `grant_types_supported`
+**Metadata parameter:** `grant_types_supported`
 
 The requirements of this profile are the same as those specified in Section 2 of \[[RFC8414](#rfc8414)\], with the following exception:
 
-If the claim is omitted, the default value SHALL be [ "authorization_code" ].
+If the parameter is omitted, the default value SHALL be [ "authorization_code" ].
 
 <a name="supported-endpoint-authentication-methods"></a>
 ##### 3.1.1.6. Supported Endpoint Authentication Methods
 
-**Metadata claim:** `token_endpoint_auth_methods_supported`
+**Metadata parameter:** `token_endpoint_auth_methods_supported`
 
-The `token_endpoint_auth_methods_supported` claim is REQUIRED and MUST include `private_key_jwt`. It MAY also include `tls_client_auth` or `self_signed_tls_client_auth`, but MUST NOT include any other methods. See [Section 8.3, Client Authentication](#client-authentication), below.
+The `token_endpoint_auth_methods_supported` parameter is REQUIRED and MUST include `private_key_jwt`. It MAY also include `tls_client_auth` or `self_signed_tls_client_auth`, but MUST NOT include any other methods. See [Section 8.3, Client Authentication](#client-authentication), below.
 
-**Metadata claim:** `revocation_endpoint_auth_methods_supported`
+**Metadata parameter:** `revocation_endpoint_auth_methods_supported`
 
-The `revocation_endpoint_auth_methods_supported` claim is REQUIRED if the authorization server supports token revocation (i.e., if the `revocation_endpoint` claim is included). If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_methods_supported` claim (see above).
+The `revocation_endpoint_auth_methods_supported` parameter is REQUIRED if the authorization server supports token revocation (i.e., if the `revocation_endpoint` parameter is included). If present, the contents of this parameter MUST follow the same requirements as the `token_endpoint_auth_methods_supported` parameter (see above).
 
-**Metadata claim:** `introspection_endpoint_auth_methods_supported`
+**Metadata parameter:** `introspection_endpoint_auth_methods_supported`
 
-The `introspection_endpoint_auth_methods_supported` claim is REQUIRED if the authorization server supports token introspection (i.e., if the `introspection_endpoint` claim is included). If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_methods_supported` claim (see above).
+The `introspection_endpoint_auth_methods_supported` parameter is REQUIRED if the authorization server supports token introspection (i.e., if the `introspection_endpoint` parameter is included). If present, the contents of this parameter MUST follow the same requirements as the `token_endpoint_auth_methods_supported` parameter (see above).
 
 <a name="supported-authentication-signing-algorithms-for-endpoints"></a>
 ##### 3.1.1.7. Supported Authentication Signing Algorithms for Endpoints
 
-**Metadata claim:** `token_endpoint_auth_signing_alg_values_supported`
+**Metadata parameter:** `token_endpoint_auth_signing_alg_values_supported`
 
-The `token_endpoint_auth_signing_alg_values_supported` claim is REQUIRED, and its contents MUST conform to the signature requirements specified in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms).
+The `token_endpoint_auth_signing_alg_values_supported` parameter is REQUIRED, and its contents MUST conform to the signature requirements specified in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms).
 
-**Metadata claim:** `revocation_endpoint_auth_methods_supported`
+**Metadata parameter:** `revocation_endpoint_auth_methods_supported`
 
-The `revocation_endpoint_auth_methods_supported` is REQUIRED if `revocation_endpoint_auth_methods_supported` is assigned. If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` claim (see above).
+The `revocation_endpoint_auth_methods_supported` parameter is REQUIRED if `revocation_endpoint_auth_methods_supported` is assigned. If present, the contents of this parameter MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` parameter (see above).
 
-**Metadata claim:** `introspection_endpoint_auth_methods_supported`
+**Metadata parameter:** `introspection_endpoint_auth_methods_supported`
 
-The `introspection_endpoint_auth_methods_supported` is REQUIRED if `introspection_endpoint_auth_methods_supported` is assigned. If present, the contents of this claim MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` claim (see above).
+The `introspection_endpoint_auth_methods_supported` parameter is REQUIRED if `introspection_endpoint_auth_methods_supported` is assigned. If present, the contents of this parameter MUST follow the same requirements as the `token_endpoint_auth_signing_alg_values_supported` parameter (see above).
 
 <a name="supported-code-challenge-methods"></a>
 ##### 3.1.1.8. Supported Code Challenge Methods
 
-**Metadata claim:** `code_challenge_methods_supported`
+**Metadata parameter:** `code_challenge_methods_supported`
 
-An authorization server compliant with this profile MUST support the PKCE extension (see [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange). Therefore, the `code_challenge_methods_supported` claim is REQUIRED and MUST include the `S256` challenge method. The `plain` challenge method MUST NOT be supported.
+An authorization server compliant with this profile MUST support the PKCE extension (see [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange). Therefore, the `code_challenge_methods_supported` parameter is REQUIRED and MUST include the `S256` challenge method. The `plain` challenge method MUST NOT be supported.
 
 <a name="supported-ui-locales"></a>
 ##### 3.1.1.9. Supported UI Locales
 
-**Metadata claim:** `ui_locales_supported`
+**Metadata parameter:** `ui_locales_supported`
 
-The `ui_locales_supported` claim SHOULD be present and include Swedish (`sv`) and English (`en`).
+The `ui_locales_supported` parameter SHOULD be present and include Swedish (`sv`) and English (`en`).
+
+<a name="as-metadata-extensions"></a>
+##### 3.1.1.10. Extensions
+
+This section contains metadata parameters for optional OAuth 2.0 extensions that MAY be supported by an authorization server.
+
+**Metadata parameter:** `dpop_signing_alg_values_supported`
+
+The `dpop_signing_alg_values_supported` parameter is assigned a JSON array listing the JWS algorithms supported by the authorization server for DPoP proof JWTs. The presence of this parameter signals that the authorization server supports the DPoP mechanism. See [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and \[[RFC9449](#rfc9449)\].
+
+**Metadata parameter:** `mtls_endpoint_aliases`
+
+Authorization servers that support both mutual-TLS clients as specified in \[[RFC8705](#rfc8705)\] and conventional clients MAY choose to use separate endpoints for mutual-TLS. In such cases, the `mtls_endpoint_aliases` parameter SHOULD be included in the authorization server metadata. See Section 5 of \[[RFC8705](#rfc8705)\].
+
+**Metadata parameter:** `tls_client_certificate_bound_access_tokens`
+
+The `tls_client_certificate_bound_access_tokens` parameter indicates authorization server support for mutual-TLS client certificate-bound access tokens. See Section 3.3 of \[[RFC8705](#rfc8705)\].
 
 <a name="authorization-server-metadata-example"></a>
-##### 3.1.1.10. Authorization Server Metadata Example
+##### 3.1.1.11. Authorization Server Metadata Example
 
 Below is an example of the metadata document for an authorization server:
 
@@ -491,7 +527,7 @@ Below is an example of the metadata document for an authorization server:
 }
 ```
 
-> Note: If the authorization server also acts as an OpenID Provider, additional metadata claims will appear in the metadata document.
+> Note: If the authorization server also acts as an OpenID Provider, additional metadata parameters will appear in the metadata document.
 
 <a name="authorization-server-metadata-publishing"></a>
 #### 3.1.2. Authorization Server Metadata Publishing
@@ -692,6 +728,8 @@ Resource servers compliant with this profile MUST validate JWT access tokens as 
     - A cached `jti` value is considered expired when the JWT from which it was extracted is no longer valid, based on its `exp` claim.
     
 * If a protected resource's access rules are based on scopes, the JWT MUST include the `scope` claim (see Section 2.2.3 of \[[RFC9068](#rfc9068)\]) with an appropriate scope value. Otherwise, the access token MUST be rejected.
+
+> TODO: Clarify requirement on validation of `aud` claim ...
 
 <a name="resource-server-error-responses"></a>
 ### 4.2. Resource Server Error Responses
@@ -894,7 +932,7 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 > `private_key_jwt`, RFC7523
 
 <a name="mutual-tls-for-client-authentication"></a>
-#### 8.3.2. Mutual TLS for Client Authentication
+#### 8.3.2. Mutual-TLS for Client Authentication
 
 > RFC8705
 
@@ -926,6 +964,50 @@ An authorization server receiving a token request where grant_type is `authoriza
 
 Finally, an authorization server receiving an access token request MUST verify the supplied `code_verifier` according to Section 4.6 of \[[RFC7636](#rfc7636)\].
 
+<a name="dpop-demonstrating-proof-of-possession"></a>
+#### 8.4.2. DPoP - Demonstrating Proof of Possession
+
+For deployments that make use of the DPoP (Demonstrating Proof of Possession) mechanism as specified in \[[RFC9449](#rfc9449)\], this profile introduces the following clarifications and additions:
+
+An authorization server SHOULD maintain configuration for each protected resource it serves, containing the following information:
+
+- Whether DPoP-bound access tokens are required, optional, or not supported.
+
+- If DPoP-bound access tokens are supported, which signing algorithms are accepted by the protected resource. 
+
+An authorization server receiving a token request for an access token&mdash;where the audience of the token is a resource that requires DPoP&mdash;MUST ensure that the request includes a valid DPoP proof. If not, the request MUST be rejected.
+
+For protected resources that support \[[RFC9728](#rfc9728)\], the parameters `dpop_bound_access_tokens_required` and `dpop_signing_alg_values_supported` MUST be used accordingly.
+
+How a client determines whether a protected resource that does not expose its metadata according to \[[RFC9728](#rfc9728)\] supports DPoP-bound access tokens is out of scope for this profile.
+
+An authorization server that supports the DPoP mechanism MUST include the `dpop_signing_alg_values_supported` parameter in its metadata document. See Section 5.1 of \[[RFC9449](#rfc9449)\].
+
+A client that always uses DPoP for token requests MUST register or announce the `dpop_bound_access_tokens` parameter and set its value to `true`. See Section 5.2 of \[[RFC9449](#rfc9449)\].
+
+There is no metadata parameter that indicates a client supports DPoP (without necessarily using it for all requests). Therefore, an authorization server that supports DPoP MUST be prepared to receive DPoP headers from any of its registered clients.
+
+A protected resource that allows reuse of an access token for several calls MUST still require a new DPoP proof for every request. See Sections 7.3 and 11.1 of \[[RFC9449](#rfc9449)\].
+
+<a name="binding-access-tokens-to-client-certificates-using-mutual-tls"></a>
+#### 8.4.3. Binding Access Tokens to Client Certificates using Mutual-TLS
+
+For deployments that make use of the "Mutual-TLS Client Certificate-Bound Access Token" mechanism as specified in Section 3 of \[[RFC8705](#rfc8705)\], this profile introduces the following clarifications and additions:
+
+If the authorization server supports mutual-TLS client certificate-bound access tokens, it MUST include the `tls_client_certificate_bound_access_tokens` parameter in its metadata document with the value set to true. See Section 3.3 of \[[RFC8705](#rfc8705)\].
+
+An authorization server SHOULD maintain a configuration for each protected resource it serves, indicating whether mutual-TLS client certificate-bound tokens are required, optional, or not supported by that resource.
+
+An authorization server receiving a token request for an access token&mdash;where the audience of the token is a resource that requires mutual-TLS&mdash;MUST ensure that the request is made over a mutual-TLS connection. Otherwise, the request MUST be rejected.
+
+A client that requests mutual-TLS certificate-bound access tokens MUST indicate this by setting the `tls_client_certificate_bound_access_tokens` client metadata parameter to `true`, or by supplying equivalent information during client registration with the authorization server. See Section 3.4 of \[[RFC8705](#rfc8705)\].
+
+If a client that has indicated the intention to use mutual-TLS client certificate-bound tokens makes a request to the token endpoint over a non-mutual-TLS connection, the authorization server MUST treat this as a valid request and issue an unbound token (assuming the request is otherwise correct). This requirement exists because a client may interact with multiple protected resources, some of which require mutual-TLS while others do not.
+
+For protected resources that support mutual-TLS client certificate-bound tokens and also support \[[RFC9728](#rfc9728)\], the `tls_client_certificate_bound_access_tokens` parameter MUST be included and set to `true`. This does not imply that mutual-TLS is required in all cases. How such a requirement is advertised is out of scope for this profile.
+
+How a client determines whether a protected resource that does not expose its metadata according to \[[RFC9728](#rfc9728)\] supports mutual-TLS client certificate-bound tokens is also out of scope for this profile.
+
 <a name="threats-and-countermeasures"></a>
 ### 8.5. Threats and Countermeasures
 
@@ -939,6 +1021,19 @@ Section 4.5 of \[[RFC9700](#rfc9700)\] describes the Authorization Code Injectio
 The countermeasure against this attack is to always require PKCE. See [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange). This involves using the `code_challenge` parameter in authorization requests and the corresponding `code_verifier` parameter in token requests.
 
 > **Note:** This threat and its countermeasure apply only when the authorization code grant is used.
+
+<a name="token-theft-and-leakage"></a>
+#### 8.5.2. Token Theft and Leakage
+
+Access tokens can be stolen in several ways. Some of these attacks are described in \[[RFC9700](#rfc9700)\], including in Sections 4.1, 4.2, 4.3, 4.4, and 4.9. Access tokens may also be leaked at the resource server (see Section 4.9).
+
+To mitigate these types of attacks, this profile specifies the following requirements:
+
+- All access tokens MUST be audience-restricted as specified in [Section 6.1, Access Tokens](#access-tokens), and protected resources MUST validate this restriction in accordance with [Section 4.1, Validation of Access Tokens](#validation-of-access-tokens).
+    
+- In deployments where any of the above threats are relevant, it is RECOMMENDED that access tokens be sender-constrained using DPoP \[[RFC9449](#rfc9449)\], or alternatively, Mutual-TLS \[[RFC8705](#rfc8705)\]. For details, see [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and [Section 8.4.3, Binding Access Tokens to Client Certificates using Mutual-TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls).
+
+> **Note:** This profile is intended for general-purpose use and therefore does not mandate sender-constrained access tokens. However, profiles targeting high-security deployments that build upon this profile may choose to require sender-constrained tokens as a mandatory feature.
 
 <a name="requirements-for-interoperability"></a>
 ## 9. Requirements for Interoperability 
@@ -962,7 +1057,7 @@ It may be tempting to choose the first solution and require that all authorizati
 
 - Support for the resource parameter, as defined in \[[RFC8707](#rfc8707)\], is not yet widely implemented in standard software.
 
-- The authorization server metadata claim `scopes_supported` (defined in Section 2 of \[[RFC8414](#rfc8414)\]) loses its usefulness, as there is no information indicating which scope maps to which protected resource. Furthermore, if the authorization server is used in a federated context as described in \[[OpenID.Federation](#openid-federation)\], filtering the authorization server metadata according to policy becomes impossible with respect to the `scopes_supported` claim.
+- The authorization server metadata parameter `scopes_supported` (defined in Section 2 of \[[RFC8414](#rfc8414)\]) loses its usefulness, as there is no information indicating which scope maps to which protected resource. Furthermore, if the authorization server is used in a federated context as described in \[[OpenID.Federation](#openid-federation)\], filtering the authorization server metadata according to policy becomes impossible with respect to the `scopes_supported` parameter.
 
 Therefore, this profile specifies the following recommendations and requirements:
 
@@ -984,7 +1079,7 @@ It is RECOMMENDED that scope values unique to a single protected resource be con
 
 An authorization server MAY choose to map a unique scope to a different scope value when including scopes in an access token. This can be useful, for example, when the protected resource is a legacy system with hardcoded scope definitions. Referring to the example above, if a client requests the `https://server.example.com/api/read` scope, the resulting JWT access token could instead contain the scope `read`.
 
-However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, \[[RFC9728](#rfc9728)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` claim in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
+However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, \[[RFC9728](#rfc9728)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` parameter in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
 
 <a name="references"></a>
 ## 10. References
