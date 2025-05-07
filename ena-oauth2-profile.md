@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-05-05
+### Version: 1.0 - draft 01 - 2025-05-07
 
 ## Abstract
 
@@ -106,7 +106,7 @@ Over the years, numerous extensions and features have been introduced, making â€
     
     8.3.1. [Signed JWT for Client Authentication](#signed-jwt-for-client-authentication)
 
-    8.3.2. [Mutual-TLS for Client Authentication](#mutual-tls-for-client-authentication)
+    8.3.2. [Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication)
 
     8.4. [OAuth 2.0 Security Mechanisms](#oauth-20-security-mechanisms)
 
@@ -114,7 +114,7 @@ Over the years, numerous extensions and features have been introduced, making â€
     
     8.4.2. [DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession)
 
-    8.4.3. [Binding Access Tokens to Client Certificates using Mutual-TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls)
+    8.4.3. [Binding Access Tokens to Client Certificates using Mutual TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls)
 
     8.5. [Threats and Countermeasures](#threats-and-countermeasures)
     
@@ -266,7 +266,7 @@ The `token_endpoint_auth_method` parameter is REQUIRED for the client metadata. 
 
 - `private_key_jwt` - See [8.3.1, Signed JWT for Client Authentication](#signed-jwt-for-client-authentication), below.
 
-- `tls_client_auth` or `self_signed_tls_client_auth` - See [8.3.2, Mutual-TLS for Client Authentication](#mutual-tls-for-client-authentication), below.<br /><br />If `tls_client_auth` is used, additional parameters according to Section 2.1.2 of \[[RFC8705](#rfc8705)\] MUST be provided.
+- `tls_client_auth` or `self_signed_tls_client_auth` - See [8.3.2, Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication), below.<br /><br />If `tls_client_auth` is used, additional parameters according to Section 2.1.2 of \[[RFC8705](#rfc8705)\] MUST be provided.
 
 > A client operating in a federated context may use different methods for different authorization servers. This is out of scope for this profile and is addressed in \[[ENA.Federation](#ena-federation)\].
 
@@ -326,7 +326,7 @@ A client that always uses DPoP for token requests MUST register the `dpop_bound_
 
 **Metadata parameter:** `tls_client_certificate_bound_access_tokens`
 
-A client that will requests mutual-TLS client certificate-bound access tokens MUST register the   `tls_client_certificate_bound_access_tokens` parameter and set its value to `true`. See Section 3.4 of \[[RFC8705](#rfc8705)\].
+A client that will requests mutual TLS client certificate-bound access tokens MUST register the   `tls_client_certificate_bound_access_tokens` parameter and set its value to `true`. See Section 3.4 of \[[RFC8705](#rfc8705)\].
 
 <a name="connections-to-protected-resources"></a>
 ### 2.3. Connections to Protected Resources
@@ -491,11 +491,11 @@ The `dpop_signing_alg_values_supported` parameter is assigned a JSON array listi
 
 **Metadata parameter:** `mtls_endpoint_aliases`
 
-Authorization servers that support both mutual-TLS clients as specified in \[[RFC8705](#rfc8705)\] and conventional clients MAY choose to use separate endpoints for mutual-TLS. In such cases, the `mtls_endpoint_aliases` parameter SHOULD be included in the authorization server metadata. See Section 5 of \[[RFC8705](#rfc8705)\].
+Authorization servers that support both mutual TLS clients as specified in \[[RFC8705](#rfc8705)\] and conventional clients MAY choose to use separate endpoints for mutual TLS. In such cases, the `mtls_endpoint_aliases` parameter SHOULD be included in the authorization server metadata. See Section 5 of \[[RFC8705](#rfc8705)\].
 
 **Metadata parameter:** `tls_client_certificate_bound_access_tokens`
 
-The `tls_client_certificate_bound_access_tokens` parameter indicates authorization server support for mutual-TLS client certificate-bound access tokens. See Section 3.3 of \[[RFC8705](#rfc8705)\].
+The `tls_client_certificate_bound_access_tokens` parameter indicates authorization server support for mutual TLS client certificate-bound access tokens. See Section 3.3 of \[[RFC8705](#rfc8705)\].
 
 <a name="authorization-server-metadata-example"></a>
 ##### 3.1.1.11. Authorization Server Metadata Example
@@ -932,7 +932,7 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 > `private_key_jwt`, RFC7523
 
 <a name="mutual-tls-for-client-authentication"></a>
-#### 8.3.2. Mutual-TLS for Client Authentication
+#### 8.3.2. Mutual TLS for Client Authentication
 
 > RFC8705
 
@@ -990,23 +990,23 @@ There is no metadata parameter that indicates a client supports DPoP (without ne
 A protected resource that allows reuse of an access token for several calls MUST still require a new DPoP proof for every request. See Sections 7.3 and 11.1 of \[[RFC9449](#rfc9449)\].
 
 <a name="binding-access-tokens-to-client-certificates-using-mutual-tls"></a>
-#### 8.4.3. Binding Access Tokens to Client Certificates using Mutual-TLS
+#### 8.4.3. Binding Access Tokens to Client Certificates using Mutual TLS
 
 For deployments that make use of the "Mutual-TLS Client Certificate-Bound Access Token" mechanism as specified in Section 3 of \[[RFC8705](#rfc8705)\], this profile introduces the following clarifications and additions:
 
-If the authorization server supports mutual-TLS client certificate-bound access tokens, it MUST include the `tls_client_certificate_bound_access_tokens` parameter in its metadata document with the value set to true. See Section 3.3 of \[[RFC8705](#rfc8705)\].
+If the authorization server supports mutual TLS client certificate-bound access tokens, it MUST include the `tls_client_certificate_bound_access_tokens` parameter in its metadata document with the value set to true. See Section 3.3 of \[[RFC8705](#rfc8705)\].
 
-An authorization server SHOULD maintain a configuration for each protected resource it serves, indicating whether mutual-TLS client certificate-bound tokens are required, optional, or not supported by that resource.
+An authorization server SHOULD maintain a configuration for each protected resource it serves, indicating whether mutual TLS client certificate-bound tokens are required, optional, or not supported by that resource.
 
-An authorization server receiving a token request for an access token&mdash;where the audience of the token is a resource that requires mutual-TLS&mdash;MUST ensure that the request is made over a mutual-TLS connection. Otherwise, the request MUST be rejected.
+An authorization server receiving a token request for an access token&mdash;where the audience of the token is a resource that requires mutual TLS&mdash;MUST ensure that the request is made over a mutual TLS connection. Otherwise, the request MUST be rejected.
 
-A client that requests mutual-TLS certificate-bound access tokens MUST indicate this by setting the `tls_client_certificate_bound_access_tokens` client metadata parameter to `true`, or by supplying equivalent information during client registration with the authorization server. See Section 3.4 of \[[RFC8705](#rfc8705)\].
+A client that requests mutual TLS certificate-bound access tokens MUST indicate this by setting the `tls_client_certificate_bound_access_tokens` client metadata parameter to `true`, or by supplying equivalent information during client registration with the authorization server. See Section 3.4 of \[[RFC8705](#rfc8705)\].
 
-If a client that has indicated the intention to use mutual-TLS client certificate-bound tokens makes a request to the token endpoint over a non-mutual-TLS connection, the authorization server MUST treat this as a valid request and issue an unbound token (assuming the request is otherwise correct). This requirement exists because a client may interact with multiple protected resources, some of which require mutual-TLS while others do not.
+If a client that has indicated the intention to use mutual TLS client certificate-bound tokens makes a request to the token endpoint over a non-mutual TLS connection, the authorization server MUST treat this as a valid request and issue an unbound token (assuming the request is otherwise correct). This requirement exists because a client may interact with multiple protected resources, some of which require mutual TLS while others do not.
 
-For protected resources that support mutual-TLS client certificate-bound tokens and also support \[[RFC9728](#rfc9728)\], the `tls_client_certificate_bound_access_tokens` parameter MUST be included and set to `true`. This does not imply that mutual-TLS is required in all cases. How such a requirement is advertised is out of scope for this profile.
+For protected resources that support mutual TLS client certificate-bound tokens and also support \[[RFC9728](#rfc9728)\], the `tls_client_certificate_bound_access_tokens` parameter MUST be included and set to `true`. This does not imply that mutual TLS is required in all cases. How such a requirement is advertised is out of scope for this profile.
 
-How a client determines whether a protected resource that does not expose its metadata according to \[[RFC9728](#rfc9728)\] supports mutual-TLS client certificate-bound tokens is also out of scope for this profile.
+How a client determines whether a protected resource that does not expose its metadata according to \[[RFC9728](#rfc9728)\] supports mutual TLS client certificate-bound tokens is also out of scope for this profile.
 
 <a name="threats-and-countermeasures"></a>
 ### 8.5. Threats and Countermeasures
@@ -1031,7 +1031,7 @@ To mitigate these types of attacks, this profile specifies the following require
 
 - All access tokens MUST be audience-restricted as specified in [Section 6.1, Access Tokens](#access-tokens), and protected resources MUST validate this restriction in accordance with [Section 4.1, Validation of Access Tokens](#validation-of-access-tokens).
     
-- In deployments where any of the above threats are relevant, it is RECOMMENDED that access tokens be sender-constrained using DPoP \[[RFC9449](#rfc9449)\], or alternatively, Mutual-TLS \[[RFC8705](#rfc8705)\]. For details, see [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and [Section 8.4.3, Binding Access Tokens to Client Certificates using Mutual-TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls).
+- In deployments where any of the above threats are relevant, it is RECOMMENDED that access tokens be sender-constrained using DPoP \[[RFC9449](#rfc9449)\], or alternatively, Mutual TLS \[[RFC8705](#rfc8705)\]. For details, see [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and [Section 8.4.3, Binding Access Tokens to Client Certificates using Mutual TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls).
 
 > **Note:** This profile is intended for general-purpose use and therefore does not mandate sender-constrained access tokens. However, profiles targeting high-security deployments that build upon this profile may choose to require sender-constrained tokens as a mandatory feature.
 
