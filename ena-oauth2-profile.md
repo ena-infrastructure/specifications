@@ -938,9 +938,15 @@ Entities compliant with this profile that support the `resource` parameter MUST 
 
 * Unless overridden by local policy, the client MUST use the Resource Identifier of the protected resource it is requesting access to as the value of the `resource` parameter. See [Section 4.3, Protected Resource Identity and Registration](#protected-resource-identity-and-registration).
 
-* An authorization server receiving a `resource` parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response with the error code `invalid_target`. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.
+* An authorization server receiving a `resource` parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response where the `error` parameter is set to `invalid_target`. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.
 
 * For the authorization code grant, it is RECOMMENDED that each access token request include only one `resource` parameter, even if the original authorization request specified multiple resources. The rationale is to limit the audience of each access token. See also the discussion about scopes and resources in Section 2.2 of \[[RFC8707](#rfc8707)\].
+
+* If an access token request does not include the `resource` parameter, but the corresponding authorization request did, the following rules apply:
+
+    - If the original authorization request included only one resource, the authorization server MUST assume that the access token request is for that specific resource.
+    
+    - If the original authorization request included multiple resources, the authorization server MUST reject the request and respond with an error response where the `error` parameter is set to `invalid_target`.
 
 * The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The values in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
 
