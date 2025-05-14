@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-05-07
+### Version: 1.0 - draft 01 - 2025-05-14
 
 ## Abstract
 
@@ -92,9 +92,11 @@ Over the years, numerous extensions and features have been introduced, making �
     
 7. [**Optional Extensions**](#optional-extensions)
 
-    7.1. [JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
+    7.1. [The Resource Parameter](#the-resource-parameter)
+
+    7.2. [JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
     
-    7.2. [PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
+    7.3. [PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
 
 8. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
 
@@ -497,6 +499,10 @@ Authorization servers that support both mutual TLS clients as specified in \[[RF
 
 The `tls_client_certificate_bound_access_tokens` parameter indicates authorization server support for mutual TLS client certificate-bound access tokens. See Section 3.3 of \[[RFC8705](#rfc8705)\].
 
+**Metadata parameter:** `https://id.oidc.se/disco/authnProviderSupported`
+
+The parameter tells whether the request extension parameter `https://id.oidc.se/param/authnProvider` is supported by the authorization server. See \[[OIDC.Sweden.Parameters](#oidc-parameters)\] and [Section 5.1.1.1, Extension Parameter for Controlling User Authentication at the Authorization Server](#extension-parameter-for-controlling-user-authentication-at-the-authorization-server).
+
 <a name="authorization-server-metadata-example"></a>
 ##### 3.1.1.11. Authorization Server Metadata Example
 
@@ -794,18 +800,77 @@ The endpoints on server1 do not share the same access rules and should therefore
 <a name="grant-types"></a>
 ## 5. Grant Types
 
+This section outlines the requirements for the grant types covered by this profile.
+
+It is RECOMMENDED that authorization servers support the `resource` parameter, as defined in \[[RFC8707](#rfc8707)\], for all grant types. Entities compliant with this profile and supporting the `resource` parameter MUST adhere to the requirements specified in [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
 <a name="authorization-code-grant"></a>
 ### 5.1. Authorization Code Grant
+
+Entities compliant with this profile that support or use the authorization code grant MUST adhere to the requirements in Section 4.1 (and its subsections) of \[[RFC6749](#rfc6749)\], along with the additions and clarifications provided below.
 
 <a name="authorization-requests"></a>
 #### 5.1.1. Authorization Requests
 
-> TODO: Note about multiple `redirect_uris`. See 2.3.2 of OAuth2.1
+A client compliant with this profile MUST construct the authorization request URI according to the parameter requirements specified below.
 
-> Recommend using JAR, (JWT-Secured Authorization Requests), according to RFC9101, if sensible data is transferred in the authorization request.
+- `response_type` - The parameter is REQUIRED and MUST contain the value `code`. Additional values MAY be included by space-delimiting them (`%x20`).
 
+- `client_id` — Specifies the identifier of the client initiating the request. See [Section 2.2.1, Client Identifiers](#client-identifiers). This parameter is REQUIRED.
 
-> TODO: Include PKCE reqs
+- `redirect_uri` — The URI to which the user should be redirected by the authorization server after processing. This parameter is REQUIRED if the client has multiple redirect URIs registered (see [Section 2.2.2.1, Redirect URIs](#redirect-uris)). If only one redirect URI is registered, use of this parameter is RECOMMENDED.
+
+- `scope` — The scope or scopes of the request. If multiple scope values are requested, they MUST be space-delimited. While this parameter is optional according to \[[RFC6749](#rfc6749)\], this profile designates it as RECOMMENDED. The rationale is that relying on an authorization server’s predefined default scopes can lead to interoperability issues if the server changes its defaults.<br /><br />Also see [Section 9.1, Defining and Using Scopes](#defining-and-using-scopes).
+
+- `resource` - An OPTIONAL parameter specifying the intended resource, or resources, for which the authorization request is made. It is RECOMMENDED that authorization servers support the `resource` parameter, as defined in \[[RFC8707](#rfc8707)\]. See [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
+- `state` — An opaque value used by the client to maintain state between the request and the response. This parameter is RECOMMENDED.<br /><br />The `state` parameter MUST NOT include sensitive information in plain text.<br /><br />It is RECOMMENDED that the state value be a one-time-use CSRF token that is securely bound to the user’s session.
+
+- `code_challenge` - Code challenge value for PKCE, see [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange). The parameter is REQUIRED.
+
+- `code_challenge_method` — The code challenge method. Although \[[RFC7636](#rfc7636)\] defines this parameter as optional and specifies `plain` as the default, this profile prohibits the use of the `plain` method. Therefore, this parameter is REQUIRED and MUST NOT be set to plain. See [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange) for details.
+
+Additional parameters MAY be included.
+
+**Note:** If the request is made according to "JWT-Secured Authorization Request (JAR)", \[[RFC9101](#rfc9101)\], or "OAuth 2.0 Pushed Authorization Requests", \[[RFC9126](#rfc9126)\], the requirements for the format of the request differ from what is stated above. See [Section 7.2, JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests) and [Section 7.3, PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests).
+
+An example of an HTTP GET request representing an OAuth 2.0 authorization request (with extra line breaks for display purposes):
+
+```
+GET /authorize?
+  response_type=code&
+  client_id=https%3A%2F%2Fclient.example.com&
+  redirect_uri=https%3A%2F%2Fclient.example.com%2Fcallback&
+  code_challenge=0x7Yt0nFnvGp4Af3GtrR7H8yWVD3ysKvl9P8z9vbYhME&
+  code_challenge_method=S256&
+  state=Z3k8MvB9QJzEr7a6X2Wa&
+  scope=https%3A%2F%2Fservice.example.com%2Fread%20https%3A%2F%2Fservice.example.com%2Fwrite
+HTTP/1.1
+Host: as.example.com
+```
+
+> The client, `https://client.example.com`, requests the scopes `https://service.example.com/read` and `https://service.example.com/write` by redirecting the user agent to the authorization server's `authorize` endpoint.
+
+An authorization server compliant with this profile MUST validate all authorization request messages to ensure that the required parameters, as listed in this section, are present and valid.
+
+The authorization server MUST reject the request if no `redirect_uri` is provided and the client has multiple redirect URIs registered.
+
+If the `redirect_uri` parameter is present in the request, the authorization server MUST ensure that it matches one of the URIs registered by the client (see [Section 2.2.2.1, Redirect URIs](#redirect-uris)). The URI comparison to determine equality MUST be performed according to Section 6.2.1 of \[[RFC3986](#rfc3986)\].
+
+The authorization server MUST NOT accept any request that omits the `code_challenge` parameter.
+
+<a name="extension-parameter-for-controlling-user-authentication-at-the-authorization-server"></a>
+##### 5.1.1.1. Extension Parameter for Controlling User Authentication at the Authorization Server
+
+A common scenario when using OAuth 2.0 is that an application (the client) has already logged in the user before directing them to the authorization server as part of an authorization request. Since the user also needs to be authenticated at the authorization server, this can result in a suboptimal user experience, where the user is prompted to authenticate multiple times.
+
+If both the application (client) and the authorization server use the same external authentication service, such as a SAML Identity Provider or an OpenID Connect Provider, this issue can be addressed using single sign-on (SSO). If the user already has an active session with the authentication service, the authorization server can take advantage of that session when requesting user authentication from the same service.
+
+This feature can significantly improve the user experience at the authorization server. However, if both the application and the authorization server support multiple authentication methods (or services), there must be a mechanism for the OAuth 2.0 client to indicate which authentication service should be used when (re-)authenticating the user.
+
+However, there is no standard OAuth 2.0 parameter for this purpose, and different solutions and products use proprietary extensions to address the problem described above. Section 2.2 of the [Authentication Request Parameter Extensions for the Swedish OpenID Connect Profile](https://www.oidc.se/specifications/request-parameter-extensions.html) specification, \[[OIDC.Sweden.Parameters](#oidc-parameters)\], defines the request parameter `https://id.oidc.se/param/authnProvider` to handle this issue.
+
+For authorization servers that support multiple user authentication methods, it is RECOMMENDED to support this parameter. Authorization servers that do support the parameter MUST indicate this in their metadata using the metadata parameter `https://id.oidc.se/disco/authnProviderSupported`. See [Section 3.1.1.10](#as-metadata-extensions).
 
 <a name="authorization-responses"></a>
 #### 5.1.2. Authorization Responses
@@ -814,6 +879,8 @@ The endpoints on server1 do not share the same access rules and should therefore
 #### 5.1.3. Token Endpoint
 
 > TODO: Include PKCE reqs
+
+> It is RECOMMENDED that authorization servers support the `resource` parameter as defined in \[[RFC8707](#rfc8707)\]. Entities compliant with this profile supporting the `resource` parameter MUST adhere to the requirements specified in [Section 7.1, The Resource Parameter](#the-resource-parameter).
 
 <a name="refresh-token-grant"></a>
 ### 5.2. Refresh Token Grant
@@ -856,13 +923,19 @@ This following grant types MUST NOT be used or supported by entities compliant w
 
 This section provides profiles of OAuth 2.0 extensions that may be used by entities compliant with this profile.
 
+<a name="the-resource-parameter"></a>
+### 7.1. The Resource Parameter
+
+<a name="rfc8707"></a>
+**\[RFC8707\]**
+
 <a name="jar-jwt-secured-authorization-requests"></a>
-### 7.1. JAR - JWT-Secured Authorization Requests
+### 7.2. JAR - JWT-Secured Authorization Requests
 
 \[[RFC9101](#rfc9101)\]
     
 <a name="par-oauth-2-0-pushed-authorization-requests"></a>
-### 7.2. PAR - OAuth 2.0 Pushed Authorization Requests
+### 7.3. PAR - OAuth 2.0 Pushed Authorization Requests
 
 \[[RFC9126](#rfc9126)\]
 
@@ -930,6 +1003,8 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 #### 8.3.1. Signed JWT for Client Authentication
 
 > `private_key_jwt`, RFC7523
+
+> TODO: Only one audience value must be present.
 
 <a name="mutual-tls-for-client-authentication"></a>
 #### 8.3.2. Mutual TLS for Client Authentication
@@ -1182,6 +1257,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="oidc-profile"></a>
 **\[OIDC.Sweden.Profile\]**
 > [The Swedish OpenID Connect Profile - Version 1.0](https://www.oidc.se/specifications/swedish-oidc-profile-1_0.html).
+
+<a name="oidc-parameters"></a>
+**\[OIDC.Sweden.Parameters\]**
+> [Authentication Request Parameter Extensions for the Swedish OpenID Connect Profile - Version 1.1](https://www.oidc.se/specifications/request-parameter-extensions.html).
 
 <a name="openid-discovery"></a>
 **\[OpenID.Discovery\]**
