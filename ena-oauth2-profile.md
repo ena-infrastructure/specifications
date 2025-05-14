@@ -223,6 +223,8 @@ However, for interoperability reasons, the requirements stated in the subsection
 
 Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
 
+Whenever feasible, the client identifier MUST correspond to the network-addressable location of the protected resource.
+
 \[[RFC6749](#rfc6749)\] and \[[RFC7591](#rfc7591)\] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in \[[OpenID.Federation](#openid-federation)\] also apply to this profile.
 
 A client registered with multiple authorization servers MUST use the same client identifier (`client_id`) for all registrations. This implies that an authorization server compliant with this profile MUST support clients with client identifiers issued by external parties.
@@ -926,8 +928,21 @@ This section provides profiles of OAuth 2.0 extensions that may be used by entit
 <a name="the-resource-parameter"></a>
 ### 7.1. The Resource Parameter
 
-<a name="rfc8707"></a>
-**\[RFC8707\]**
+“Resource Indicators for OAuth 2.0”, \[[RFC8707](#rfc8707)\], defines the OAuth 2.0 `resource` parameter. Its purpose is to allow an OAuth 2.0 client to indicate the protected resource, or resources, it intends to access. This becomes particularly important when an authorization server protects multiple resources.
+
+[Section 9.1, Defining and Using Scopes](#defining-and-using-scopes) recommends that scopes be defined in a non-generic manner, bound to a single protected resource or to a function shared across multiple resources with a common access model. However, this approach may not always be feasible. Moreover, even when non-generic scopes are used, it may still be necessary to specify which resource the client intends to access.
+
+Therefore, for authorization servers and clients compliant with this profile, it is RECOMMENDED to support and use the `resource` parameter.
+
+Entities compliant with this profile that support the `resource` parameter MUST adhere to the requirements stated in \[[RFC8707](#rfc8707)\], with the following additions and clarifications:
+
+* Unless overridden by local policy, the client MUST use the Resource Identifier of the protected resource it is requesting access to as the value of the `resource` parameter. See [Section 4.3, Protected Resource Identity and Registration](#protected-resource-identity-and-registration).
+
+* An authorization server receiving a `resource` parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response with the error code `invalid_target`. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.
+
+* For the authorization code grant, it is RECOMMENDED that each access token request include only one `resource` parameter, even if the original authorization request specified multiple resources. The rationale is to limit the audience of each access token. See also the discussion about scopes and resources in Section 2.2 of \[[RFC8707](#rfc8707)\].
+
+* The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The values in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
 
 <a name="jar-jwt-secured-authorization-requests"></a>
 ### 7.2. JAR - JWT-Secured Authorization Requests
