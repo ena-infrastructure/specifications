@@ -72,7 +72,9 @@ Over the years, numerous extensions and features have been introduced, making �
 
     5.1.2. [Authorization Responses](#authorization-responses)
 
-    5.1.3. [Token Endpoint](#acg-token-endpoint)
+    5.1.3. [Access Token Requests](#access-token-requests)
+
+    5.1.4. [Access Token Responses](#access-token-responses)
 
     5.2. [Refresh Token Grant](#refresh-token-grant)
 
@@ -619,13 +621,15 @@ The token endpoint is used by different grant types, and specific requirements f
 <a name="token-requests"></a>
 ##### 3.3.2.1. Token Requests
 
-The following request parameters are REQUIRED for the client to pass to the authorization server’s endpoint, regardless of the grant type being used:
+The following request parameters are REQUIRED for the client to pass to the authorization server’s token endpoint, regardless of the grant type being used:
 
 - `grant_type` - The grant type used for the particular request. See [Section 5, Grant Types](#grant-types) for the different grant types specified in this profile.
 
 - `client_id` - The identifier for the client making the request. See [Section 2.2.1, Client Identifiers](#client-identifiers).
 
 Additional request parameters that are specific to each grant type apply and are specified for the respective grant type. See [Section 5, Grant Types](#grant-types).
+
+The client making the token request MUST authenticate using either the `private_key_jwt` method or, if supported by the authorization server and permitted by policy, Mutual TLS. See [Section 8.3.1, Signed JWT for Client Authentication](#signed-jwt-for-client-authentication) and [Section 8.3.2, Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication) for further requirements. The authorization server MUST reject any token request that lacks client authentication or uses a method not permitted by this profile.
 
 The authorization server MUST authenticate the client request before proceeding.
 
@@ -897,6 +901,8 @@ Entities compliant with this profile MUST adhere to Section 4.1.2 of \[[RFC6749]
 
 * A client that communicates with multiple authorization servers SHOULD support the processing of the `iss` parameter in accordance with the requirements in \[[RFC9207](#rfc9207)\].
 
+* For error responses, it is RECOMMENDED that the authorization server include the `error_description` parameter to provide additional information about the error. The text provided MUST NOT reveal sensitive information, violate user privacy, or expose details that could be useful to an attacker.
+
 Example of an authorization response message (line breaks added for readability):
 
 ```
@@ -918,12 +924,45 @@ Location: https://client.example.com/callback?
   iss=https%3A%2F%2Fas.example.com
 ```
 
-<a name="acg-token-endpoint"></a>
-#### 5.1.3. Token Endpoint
+<a name="access-token-requests"></a>
+#### 5.1.3. Access Token Requests
 
-> TODO: Include PKCE reqs
+For requesting and providing an access token using the authorization code grant, entities compliant with this profile MUST adhere to Section 4.1.3 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
 
-> It is RECOMMENDED that authorization servers support the `resource` parameter as defined in \[[RFC8707](#rfc8707)\]. Entities compliant with this profile supporting the `resource` parameter MUST adhere to the requirements specified in [Section 7.1, The Resource Parameter](#the-resource-parameter).
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled. In particular, the required grant_type parameter MUST be set to `authorization_code`.
+
+* The `code_verifier` parameter, which contains the original code verifier string, is REQUIRED. See the processing requirements in [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange).
+
+* The `redirect_uri` parameter is required by \[[RFC6749](#rfc6749)\] if the corresponding authorization request included a `redirect_uri` value. This requirement was originally introduced to prevent authorization code injection attacks. However, since the mandatory use of PKCE (see [Section 8.4.1](#pkce-proof-key-for-code-exchange)) offers more robust protection against such attacks, the `redirect_uri` parameter serves no practical purpose in this context. Therefore, to align with the upcoming \[[OAuth-2.1](#oauth21)\] specification, where `redirect_uri` is no longer used, this profile defines the following requirements:
+
+  - If the `redirect_uri` parameter is present in the request, the authorization server MUST process it according to the requirements stated in \[[RFC6749](#rfc6749)\].
+  
+  - If the `redirect_uri` is omitted, the authorization server MUST NOT reject the request, provided that the `code_verifier` parameter is present and successfully validated.
+
+* If the authorization server supports the `resource` parameter and it is included in the request, the authorization server MUST process it in accordance with [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
+Example of an access token request message (line breaks added for readability):
+
+```
+POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&
+code=SplxlOBeZQQYbYS6WxSbIA&
+redirect_uri=https%3A%2F%2Fclient.example.com%2Fcallback&
+client_id=https%3A%2F%2Fclient.example.com&
+client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVudC5leGFtcGxlL \
+  mNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcy5leGFtcGxlLmNvbSIsI \
+  mV4cCI6MTY4MDAwMDAwMCwiaWF0IjoxNjgwMDAwMDAwLCJqdGkiOiJxa2x3ZWZka2pmcWx1cm1jdHZuZXZ5bXhwIn0.RGViX \
+  2V4YW1wbGVTaWduYXR1cmVIZXJl&
+code_verifier=bj3nhdD9fX1JVuTWBEtPZsG5dNxMCuKzLFFbItgQafM
+```
+
+<a name="access-token-responses"></a>
+#### 5.1.4. Access Token Responses
+
 
 <a name="refresh-token-grant"></a>
 ### 5.2. Refresh Token Grant
@@ -1343,6 +1382,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 
 <a name="informational-references"></a>
 ### 10.2. Informational References
+
+<a name="oauth21"></a>
+**\[OAuth-2.1\]**
+> [Hardt, D., Parecki, A., Lodderstedt, T., "The OAuth 2.1 Authorization Framework", Draft 12, November 2024](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/)
 
 <a name="openid-discovery"></a>
 **\[OpenID.Discovery\]**
