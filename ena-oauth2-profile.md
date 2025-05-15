@@ -72,9 +72,7 @@ Over the years, numerous extensions and features have been introduced, making â€
 
     5.1.2. [Authorization Responses](#authorization-responses)
 
-    5.1.3. [Access Token Requests](#access-token-requests)
-
-    5.1.4. [Access Token Responses](#access-token-responses)
+    5.1.3. [Access Token Requests and Responses](#access-token-requests-and-responses)
 
     5.2. [Refresh Token Grant](#refresh-token-grant)
 
@@ -91,6 +89,8 @@ Over the years, numerous extensions and features have been introduced, making â€
 6. [**Tokens**](#tokens)
 
     6.1. [Access Tokens](#access-tokens)
+
+    6.2. [Refresh Tokens](#refresh-tokens)
     
 7. [**Optional Extensions**](#optional-extensions)
 
@@ -671,7 +671,7 @@ The following parameter requirements apply for authorization servers compliant w
 
 - `scope` - The issued scope(s). Section 5.1 of \[[RFC6749](#rfc6749)\] states that the parameter is OPTIONAL if the scopes granted are the same as those requested by the client, and REQUIRED otherwise. This profile states that the inclusion of the parameter is RECOMMENDED, regardless of which scopes were granted.
 
-Example of an access token (in the form of a signed JWT) issued along with a refresh token:
+Example of a token response message holding an access token (in the form of a signed JWT) along with a refresh token:
 
 ```
 HTTP/1.1 200 OK
@@ -924,8 +924,8 @@ Location: https://client.example.com/callback?
   iss=https%3A%2F%2Fas.example.com
 ```
 
-<a name="access-token-requests"></a>
-#### 5.1.3. Access Token Requests
+<a name="access-token-requests-and-responses"></a>
+#### 5.1.3. Access Token Requests and Responses
 
 For requesting and providing an access token using the authorization code grant, entities compliant with this profile MUST adhere to Section 4.1.3 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
 
@@ -960,8 +960,9 @@ client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaW
 code_verifier=bj3nhdD9fX1JVuTWBEtPZsG5dNxMCuKzLFFbItgQafM
 ```
 
-<a name="access-token-responses"></a>
-#### 5.1.4. Access Token Responses
+If the access token request is valid and authorized, the authorization server issues an access token, possibly also a refresh token, and sends a response message as specified in [Section 3.3.2.2, Token Responses](#token-responses). Requirements for access tokens and refresh tokens are given in [Section 6.1, Access Tokens](#access-tokens) and [Section 6.2, Refresh Tokens](#refresh-tokens), respectively.
+
+If the access token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
 
 
 <a name="refresh-token-grant"></a>
@@ -999,6 +1000,9 @@ This following grant types MUST NOT be used or supported by entities compliant w
 > If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
 
 - `azp`?
+
+<a name="refresh-tokens"></a>
+### 6.2. Refresh Tokens
 
 <a name="optional-extensions"></a>
 ## 7. Optional Extensions
