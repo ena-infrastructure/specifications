@@ -123,6 +123,8 @@ Over the years, numerous extensions and features have been introduced, making â€
     8.5.1. [Injection of Authorization Code](#injection-of-authorization-code)
 
     8.5.2. [Token Theft and Leakage](#token-theft-and-leakage)
+    
+    8.5.3. [Authorization Server Mix-Up Attacks](#authorization-server-mix-up-attacks)
 
 9. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
@@ -488,6 +490,10 @@ The `ui_locales_supported` parameter SHOULD be present and include Swedish (`sv`
 ##### 3.1.1.10. Extensions
 
 This section contains metadata parameters for optional OAuth 2.0 extensions that MAY be supported by an authorization server.
+
+**Metadata parameter:** `authorization_response_iss_parameter_supported`
+
+The `authorization_response_iss_parameter_supported` metadata parameter, as defined in \[[RFC9207](#rfc9207)\], indicates whether the authorization server supports including the `iss` (issuer) parameter in authorization responses to protect against [Authorization Server Mix-Up Attacks](#authorization-server-mix-up-attacks). An authorization server operating within a federation or serving clients that interact with multiple authorization servers SHOULD support the `iss` parameter and therefore set this metadata value to `true`.
 
 **Metadata parameter:** `dpop_signing_alg_values_supported`
 
@@ -861,6 +867,8 @@ If the `redirect_uri` parameter is present in the request, the authorization ser
 
 The authorization server MUST NOT accept any request that omits the `code_challenge` parameter.
 
+If the request includes the `resource` parameter, and the authorization server supports this parameter, it MUST process this parameter as specified in [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
 <a name="extension-parameter-for-controlling-user-authentication-at-the-authorization-server"></a>
 ##### 5.1.1.1. Extension Parameter for Controlling User Authentication at the Authorization Server
 
@@ -876,6 +884,39 @@ For authorization servers that support multiple user authentication methods, it 
 
 <a name="authorization-responses"></a>
 #### 5.1.2. Authorization Responses
+
+Entities compliant with this profile MUST adhere to Section 4.1.2 of \[[RFC6749](#rfc6749)\], with the following additions and clarifications:
+
+* The value of the `code` parameter MUST be bound to the client identifier, code challenge, and redirect URI.
+
+* It is RECOMMENDED that authorization servers include the `iss` parameter in the authorization response, as defined in \[[RFC9207](#rfc9207)\], to protect against authorization server mix-up attacks (see [Section 8.5.3](#authorization-server-mix-up-attacks)). This applies to both successful and error responses.
+
+* An authorization server operating within a federation, or serving clients that interact with multiple authorization servers, SHOULD support and include the `iss` parameter.
+
+* An authorization server that supports the `iss` authorization response parameter MUST indicate this by setting the `authorization_response_iss_parameter_supported` parameter to `true` in its metadata document (see [Section 3.1.1.10](#as-metadata-extensions)).
+
+* A client that communicates with multiple authorization servers SHOULD support the processing of the `iss` parameter in accordance with the requirements in \[[RFC9207](#rfc9207)\].
+
+Example of an authorization response message (line breaks added for readability):
+
+```
+HTTP/1.1 302 Found
+Location: https://client.example.com/callback?
+  code=SplxlOBeZQQYbYS6WxSbIA&
+  state=Z3k8MvB9QJzEr7a6X2Wa&
+  iss=https%3A%2F%2Fas.example.com
+```
+
+An example of an error response:
+
+```
+HTTP/1.1 302 Found
+Location: https://client.example.com/callback?
+  error=access_denied&
+  error_description=User%20did%20not%20consent&
+  state=Z3k8MvB9QJzEr7a6X2Wa&
+  iss=https%3A%2F%2Fas.example.com
+```
 
 <a name="acg-token-endpoint"></a>
 #### 5.1.3. Token Endpoint
@@ -1131,6 +1172,11 @@ To mitigate these types of attacks, this profile specifies the following require
 
 > **Note:** This profile is intended for general-purpose use and therefore does not mandate sender-constrained access tokens. However, profiles targeting high-security deployments that build upon this profile may choose to require sender-constrained tokens as a mandatory feature.
 
+<a name="authorization-server-mix-up-attacks"></a>
+#### 8.5.3. Authorization Server Mix-Up Attacks
+
+7.13
+
 <a name="requirements-for-interoperability"></a>
 ## 9. Requirements for Interoperability 
 
@@ -1254,6 +1300,10 @@ However, if the protected resource implements â€œOAuth 2.0 Protected Resource Me
 <a name="rfc9126"></a>
 **\[RFC9126\]**
 > [Lodderstedt, T., Campbell, B., Sakimura, N., Tonge, D., and F. Skokan, "OAuth 2.0 Pushed Authorization Requests", RFC 9126, DOI 10.17487/RFC9126, September 2021](https://www.rfc-editor.org/info/rfc9126).
+
+<a name="rfc9207"></a>
+**\[RFC9207\]**
+> [Meyer zu Selhausen, K. and D. Fett, "OAuth 2.0 Authorization Server Issuer Identification", RFC 9207, DOI 10.17487/RFC9207, March 2022](https://www.rfc-editor.org/info/rfc9207).
 
 <a name="rfc9449"></a>
 **\[RFC9449\]**
