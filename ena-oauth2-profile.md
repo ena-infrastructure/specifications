@@ -1064,7 +1064,24 @@ client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaW
 <a name="jwt-authorization-grants"></a>
 #### 5.4.2. JWT Authorization Grants
 
-`urn:ietf:params:oauth:grant-type:jwt-bearer`
+Entities compliant with this profile MAY use JWT authorization grants, as specified in \[[RFC7523](#rfc7523)\], for specific use cases such as cross-domain scenarios where a JWT can be used as an authorization grant to obtain an access token from a different authorization server, see \[[OAuth.ID-Chaining](#oauth-id-chaining)\].
+
+This profile does not define specific requirements for the various use cases in which JWT authorization grants may be used, but the base requirements stated below MUST be adhered to by entities compliant with this profile.
+
+The requirements from Section 2.1 and 3.1 of \[[RFC7523](#rfc7523)\] MUST be fulfilled, with the following additions and clarifications:
+
+* The JWT MUST be digitally signed by the issuer of the JWT, and the authorization server MUST reject the request if the signature is missing or invalid.
+
+* The JWT MUST include the `client_id` claim, holding the client identifier (see [Section 2.2.1](#client-identifiers)) of the client making the request. The authorization server MUST verify that this claim value corresponds to the authenticated client making the request.
+
+* The JWT MUST include a `jti` claim (JWT ID) uniquely identifying the token. The authorization server MAY use this value for replay protection (if the current policy requires that each JWT may only be used once).
+
+* To protect against audience injection attacks as described in \[[Audience.Injection](#audience-injection)\], the JWT MUST contain an `aud` (audience) claim with the authorization server entity identifier (see [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier)) as its only value.<br /><br />
+The authorization server MUST reject the request if the `aud` claim does not contain its entity identifier (issuer identifier) as its only audience value.
+
+The response message for a token request using the `urn:ietf:params:oauth:grant-type:jwt-bearer` grant type MUST adhere to the requirements stated in [Section 3.3.2.2, Token Responses](#token-responses).
+
+If the request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
 
 <a name="prohibited-grant-types"></a>
 ### 5.5. Prohibited Grant Types
@@ -1083,7 +1100,7 @@ This following grant types MUST NOT be used or supported by entities compliant w
 
 > TODO: Specify JWT access token format
 
-> If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
+> TODO: If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
 
 - `azp`?
 
@@ -1210,6 +1227,10 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 #### 8.3.1. Signed JWT for Client Authentication
 
 > `private_key_jwt`, RFC7523
+
+> In Section 3.2 of [RFC7523] (Client Authentication Processing), the following requirement is added:
+
+> Client authentication JWTs MUST be explicitly typed by using the typ header parameter value client-authentication+jwt another more specific explicit type value defined by a specification profiling this specification. Client authentication JWTs not using the explicit type value MUST be rejected by the authorization server.
 
 > TODO: Only one audience value must be present.
 
@@ -1415,7 +1436,7 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 > [Campbell, B., Mortimore, C., and M. Jones, "Security Assertion Markup Language (SAML) 2.0 Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7522, DOI 10.17487/RFC7522, May 2015](https://datatracker.ietf.org/doc/html/rfc7522).
 
 <a name="rfc7523"></a>
-**\[RFC7523\]**  
+**\[RFC7523\]**
 > [Jones, M., Campbell, B., and C. Mortimore, "JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7523, DOI 10.17487/RFC7523, May 2015](https://datatracker.ietf.org/doc/html/rfc7523).
 
 <a name="rfc7636"></a>
@@ -1500,6 +1521,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="oauth21"></a>
 **\[OAuth-2.1\]**
 > [Hardt, D., Parecki, A., Lodderstedt, T., "The OAuth 2.1 Authorization Framework", Draft 12, November 2024](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/)
+
+<a name="oauth-id-chaining"></a>
+**\[OAuth.ID-Chaining\]**
+> [Schwenkschuster, A., Kasselmann, P., Burgin, K., Jenkins, M., Campbell, B., "OAuth Identity and Authorization Chaining Across Domains", Draft 4, February 2025](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/).
 
 <a name="openid-discovery"></a>
 **\[OpenID.Discovery\]**
