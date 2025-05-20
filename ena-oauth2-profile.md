@@ -79,6 +79,10 @@ Over the years, numerous extensions and features have been introduced, making �
     5.3. [Client Credentials Grant](#client-credentials-grant)
 
     5.4. [Other Grant Types](#other-grant-types)
+    
+    5.4.1. [SAML Assertion Authorization Grants](#saml-assertion-authorization-grants)
+
+    5.4.2. [JWT Authorization Grants](#jwt-authorization-grants)
 
     5.5. [Prohibited Grant Types](#prohibited-grant-types)
 
@@ -986,8 +990,81 @@ If the token request is rejected or invalid, the authorization server MUST send 
 <a name="client-credentials-grant"></a>
 ### 5.3. Client Credentials Grant
 
+The `client_credentials` grant MAY be supported by authorization servers compliant with this profile.
+
+To request and issue an access token using the `client_credentials` grant, entities compliant with this profile MUST adhere to Section 4.4 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
+
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled, and the `grant_type` parameter MUST be set to `client_credentials`.
+
+* If the authorization server supports the `resource` parameter, it MUST also support its use with the `client_credentials` grant. The requirements stated in [Section 7.1](#the-resource-parameter) apply.
+
+Example of an access token request message using the `client_credentials` grant (line breaks added for readability):
+
+```
+POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&
+client_id=https%3A%2F%2Fclient.example.com&
+scope=https%3A%2F%2Fservice.example.com%2Fread&
+resource=https%3A%2F%2Fservice.example.com¶
+client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVudC5le \
+  GFtcGxlLmNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcy \
+  5leGFtcGxlLmNvbS90b2tlbiIsImV4cCI6MTcxNjA4ODAwMCwianRpIjoiYTkzODdlZTgtMzQ0Zi00YjM1LTg \
+  zNTUtMzI0NzdkNjFiNmM4In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+```
+
+The response message for a token request using the `client_credentials` grant type MUST adhere to the requirements stated in [Section 3.3.2.2, Token Responses](#token-responses), with the following addition:
+
+* A refresh token MUST NOT be issued in the response to a `client_credentials` token request.
+
+If the token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
+
 <a name="other-grant-types"></a>
 ### 5.4. Other Grant Types
+
+Entities compliant with this profile MAY use extension grants not profiled in this document. However, when doing so, the requirements of this profile MUST still be fulfilled.
+
+The subsections below provide profiling for some extension grants that MAY be used by entities compliant with this profile.
+
+<a name="saml-assertion-authorization-grants"></a>
+#### 5.4.1. SAML Assertion Authorization Grants
+
+Using SAML assertions as authorization grants, as specified in \[[RFC7522](#rfc7522)\], MAY be used by entities compliant with this profile. However, if possible, it is RECOMMENDED to use the more standardized authorization code grant &mdash; possibly using the extension parameter as specified in [Section 5.1.1.1](#extension-parameter-for-controlling-user-authentication-at-the-authorization-server).
+
+If the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant is used, the requirements specified in \[[RFC7522](#rfc7522)\], along with the additions and clarifications below, MUST be fulfilled.
+
+* There MUST be an agreement between the client and the authorization server regarding the process of user consent. This consent may be implicit or explicit.
+
+* If the authorization server issues a refresh token in the token response, the requirements stated in [Section 6.2, Refresh Tokens](#refresh-tokens) MUST be fulfilled &mdash; specifically, the requirements regarding the need for an established relationship between the client and the authorization server concerning user authentication policies.
+
+* The assertion processing requirements stated in Section 3 of \[[RFC7522](#rfc7522)\] MUST be adhered to, along with the following addition to protect against audience injection attacks as described in \[[Audience.Injection](#audience-injection)\].<br /><br />The `AudienceRestriction` element of the SAML assertion MUST contain an `Audience` value that uniquely identifies the authorization server. The only other `Audience` value permitted within the `AudienceRestriction` element is that of the client. If other audience values appear in the assertion, the authorization server MUST reject the request.<br /><br />The authorization server MAY maintain a mapping of SAML entity identifiers to OAuth 2.0 identities in cases where client OAuth 2.0 entities differ from SAML Service Provider entity identifiers.
+
+Example of an access token request message using the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant (line breaks added for readability):
+
+```
+POST /token  
+Host: as.example.com  
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:saml2-bearer&
+scope=https%3A%2F%2Fservice.example.com%2Fread&
+assertion=PHNhbWxwOl...[Base64-encoded SAML2 Assertion]...ZT4%3D&
+client_id=https%3A%2F%2Fclient.example.com&
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVu \
+  dC5leGFtcGxlLmNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0 \
+  cHM6Ly9hcy5leGFtcGxlLmNvbS90b2tlbiIsImV4cCI6MTcwMDAwMDAwMCwiaWF0IjoxNzAwMDAwMDAw \
+  LCJqdGkiOiJ1bmlxdWUtaWQtMTIzIn0.MEUCIQDf3ddNZW7U9bMo6vHzgHtU0LR3EnuC2UOqGVoYZ7Br \
+  pgIgHYo9ZehyPKkhyRUL7zUvQeap3id9mM7zvBaGXjaeXkY
+```
+
+<a name="jwt-authorization-grants"></a>
+#### 5.4.2. JWT Authorization Grants
+
+`urn:ietf:params:oauth:grant-type:jwt-bearer`
 
 <a name="prohibited-grant-types"></a>
 ### 5.5. Prohibited Grant Types
@@ -1333,6 +1410,14 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC7519\]**
 > [Jones, M., Bradley, J., and N. Sakimura, "JSON Web Token (JWT)", RFC 7519, DOI 10.17487/RFC7519, May 2015](https://datatracker.ietf.org/doc/html/rfc7519).
 
+<a name="rfc7522"></a>
+**\[RFC7522\]**
+> [Campbell, B., Mortimore, C., and M. Jones, "Security Assertion Markup Language (SAML) 2.0 Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7522, DOI 10.17487/RFC7522, May 2015](https://datatracker.ietf.org/doc/html/rfc7522).
+
+<a name="rfc7523"></a>
+**\[RFC7523\]**  
+> [Jones, M., Campbell, B., and C. Mortimore, "JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7523, DOI 10.17487/RFC7523, May 2015](https://datatracker.ietf.org/doc/html/rfc7523).
+
 <a name="rfc7636"></a>
 **\[RFC7636\]**
 > [Sakimura, N., Ed., Bradley, J., and N. Agarwal, "Proof Key for Code Exchange by OAuth Public Clients", RFC 7636, DOI 10.17487/RFC7636, September 2015](https://www.rfc-editor.org/info/rfc7636).
@@ -1427,6 +1512,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="ena-federation"></a>
 **\[ENA.Federation\]**
 > [Ena OAuth 2.0 Federation Interoperability Profile](ena-oauth2-federation.md).
+
+<a name="audience-injection"></a>
+**\[Audience.Injection\]**
+> [Hosseyni, P., Küsters, R., and T. Würtele, "Audience Injection Attacks: A New Class of Attacks on Web-Based Authorization and Authentication Standards", Cryptology ePrint Archive Paper 2025/629, April 2025](https://eprint.iacr.org/2025/629).
 
  
 
