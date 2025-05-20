@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-05-14
+### Version: 1.0 - draft 01 - 2025-05-20
 
 ## Abstract
 
@@ -75,10 +75,6 @@ Over the years, numerous extensions and features have been introduced, making â€
     5.1.3. [Access Token Requests and Responses](#access-token-requests-and-responses)
 
     5.2. [Refresh Token Grant](#refresh-token-grant)
-
-    5.2.1. [Token Endpoint](#rtg-token-endpoint)
-
-    5.2.2. [Refresh Token Requirements and Recommendations](#refresh-token-requirements-and-recommendations)
 
     5.3. [Client Credentials Grant](#client-credentials-grant)
 
@@ -667,7 +663,7 @@ The following parameter requirements apply for authorization servers compliant w
 
 - `expires_in` - The lifetime for the access token in seconds. The parameter is REQUIRED. The value SHOULD be kept as low as practically possible.
 
-- `refresh_token` - A refresh token. This parameter is OPTIONAL.<br /><br />An authorization server compliant with this profile MUST NOT issue a refresh token if no user is involved (for example, the `client_credentials` grant), or if the user does not have a direct relationship with the authorization server (for example, the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant).
+- `refresh_token` - A refresh token. This parameter is OPTIONAL.
 
 - `scope` - The issued scope(s). Section 5.1 of \[[RFC6749](#rfc6749)\] states that the parameter is OPTIONAL if the scopes granted are the same as those requested by the client, and REQUIRED otherwise. This profile states that the inclusion of the parameter is RECOMMENDED, regardless of which scopes were granted.
 
@@ -929,7 +925,7 @@ Location: https://client.example.com/callback?
 
 For requesting and providing an access token using the authorization code grant, entities compliant with this profile MUST adhere to Section 4.1.3 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
 
-* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled. In particular, the required grant_type parameter MUST be set to `authorization_code`.
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled, and `grant_type` MUST be set to `authorization_code`.
 
 * The `code_verifier` parameter, which contains the original code verifier string, is REQUIRED. See the processing requirements in [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange).
 
@@ -964,15 +960,28 @@ If the access token request is valid and authorized, the authorization server is
 
 If the access token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
 
-
 <a name="refresh-token-grant"></a>
 ### 5.2. Refresh Token Grant
 
-<a name="rtg-token-endpoint"></a>
-#### 5.2.1. Token Endpoint
+Entities compliant with this profile MUST adhere to Section 6 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
 
-<a name="refresh-token-requirements-and-recommendations"></a>
-#### 5.2.2. Refresh Token Requirements and Recommendations
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled, and `grant_type` MUST be set to `refresh_token`.
+
+* The authorization server MUST ensure that the received refresh token is bound to the client making the token request.
+
+* The authorization server MUST validate that the grant corresponding to the received refresh token is still active.
+
+* If the authorization server supports the `resource` parameter, it MUST support its use with the `refresh_token` grant. The requirements stated in [Section 7.1](#the-resource-parameter) apply.
+
+The response message for a token request using the `refresh_token` grant type MUST adhere to the requirements stated in [Section 3.3.2.2, Token Responses](#token-responses) with the following additions:
+
+* Unless refresh tokens are sender-constrained (see [Section 8.4.2](#dpop-demonstrating-proof-of-possession) or [Section 8.4.3](#binding-access-tokens-to-client-certificates-using-mutual-tls)), it is RECOMMENDED that each response message include a newly issued refresh token and that the previous refresh token is invalidated. This limits the lifetime of refresh tokens and reduces the risk of refresh token theft.
+
+* Clients MUST be prepared to receive a new refresh token in a response message.
+
+If the token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
+
+**Note:** See additional requirements for refresh tokens in [Section 6.2](#refresh-tokens).
 
 <a name="client-credentials-grant"></a>
 ### 5.3. Client Credentials Grant
@@ -1004,6 +1013,20 @@ This following grant types MUST NOT be used or supported by entities compliant w
 <a name="refresh-tokens"></a>
 ### 6.2. Refresh Tokens
 
+An authorization server MUST NOT issue a refresh token if no end user is involved (for example, when using the `client_credentials` grant).
+
+If the user does not have a direct relationship with the authorization server (for example, when using the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type), the authorization server MAY issue refresh tokens, provided that there is an established relationship between the client and the authorization server concerning user authentication policies. How this relationship is managed is out of scope for this profile.
+
+If refresh tokens are represented as JWTs, these JWTs MUST always be signed by the authorization server.
+
+It is RECOMMENDED that the authorization server encrypt refresh token JWTs using its own public key. This is to prevent exposing internal authorization server handling.
+
+An authorization server SHOULD invalidate the previous refresh token when issuing a new one to the client. Allowing multiple active refresh tokens for the same client and session increases the risk of attacks using the `refresh_token` grant.
+
+If the end user's session is no longer valid at the authorization server, i.e., the session has timed out or the user has logged out, all refresh tokens for that user MUST be revoked (invalidated).
+
+All refresh tokens MUST have an expiration time that makes them invalid if the client has not been active, i.e., has not used the refresh token, within that time. The expiration time is determined by local policy but SHOULD be kept as short as feasible. 
+
 <a name="optional-extensions"></a>
 ## 7. Optional Extensions
 
@@ -1024,15 +1047,17 @@ Entities compliant with this profile that support the `resource` parameter MUST 
 
 * An authorization server receiving a `resource` parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response where the `error` parameter is set to `invalid_target`. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.
 
-* For the authorization code grant, it is RECOMMENDED that each access token request include only one `resource` parameter, even if the original authorization request specified multiple resources. The rationale is to limit the audience of each access token. See also the discussion about scopes and resources in Section 2.2 of \[[RFC8707](#rfc8707)\].
+* For the authorization code grant, it is RECOMMENDED that each access token request<sup>\*</sup> include only one `resource` parameter, even if the original authorization request specified multiple resources. The rationale is to limit the audience of each access token. See also the discussion about scopes and resources in Section 2.2 of \[[RFC8707](#rfc8707)\].
 
-* If an access token request does not include the `resource` parameter, but the corresponding authorization request did, the following rules apply:
+* If an access token request<sup>\*</sup> does not include the `resource` parameter, but the corresponding authorization request did, the following rules apply:
 
     - If the original authorization request included only one resource, the authorization server MUST assume that the access token request is for that specific resource.
     
     - If the original authorization request included multiple resources, the authorization server MUST reject the request and respond with an error response where the `error` parameter is set to `invalid_target`.
 
 * The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The values in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
+
+> \[\*\]: By "access token request", we refer to a token request using the `authorization_code` or `refresh_token` grant type.
 
 <a name="jar-jwt-secured-authorization-requests"></a>
 ### 7.2. JAR - JWT-Secured Authorization Requests
