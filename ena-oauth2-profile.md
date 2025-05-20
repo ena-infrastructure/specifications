@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-05-07
+### Version: 1.0 - draft 01 - 2025-05-20
 
 ## Abstract
 
@@ -72,29 +72,33 @@ Over the years, numerous extensions and features have been introduced, making �
 
     5.1.2. [Authorization Responses](#authorization-responses)
 
-    5.1.3. [Token Endpoint](#acg-token-endpoint)
+    5.1.3. [Access Token Requests and Responses](#access-token-requests-and-responses)
 
     5.2. [Refresh Token Grant](#refresh-token-grant)
-
-    5.2.1. [Token Endpoint](#rtg-token-endpoint)
-
-    5.2.2. [Refresh Token Requirements and Recommendations](#refresh-token-requirements-and-recommendations)
 
     5.3. [Client Credentials Grant](#client-credentials-grant)
 
     5.4. [Other Grant Types](#other-grant-types)
+    
+    5.4.1. [SAML Assertion Authorization Grants](#saml-assertion-authorization-grants)
+
+    5.4.2. [JWT Authorization Grants](#jwt-authorization-grants)
 
     5.5. [Prohibited Grant Types](#prohibited-grant-types)
 
 6. [**Tokens**](#tokens)
 
     6.1. [Access Tokens](#access-tokens)
+
+    6.2. [Refresh Tokens](#refresh-tokens)
     
 7. [**Optional Extensions**](#optional-extensions)
 
-    7.1. [JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
+    7.1. [The Resource Parameter](#the-resource-parameter)
+
+    7.2. [JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
     
-    7.2. [PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
+    7.3. [PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
 
 8. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
 
@@ -121,6 +125,8 @@ Over the years, numerous extensions and features have been introduced, making �
     8.5.1. [Injection of Authorization Code](#injection-of-authorization-code)
 
     8.5.2. [Token Theft and Leakage](#token-theft-and-leakage)
+    
+    8.5.3. [Authorization Server Mix-Up Attacks](#authorization-server-mix-up-attacks)
 
 9. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
@@ -220,6 +226,8 @@ However, for interoperability reasons, the requirements stated in the subsection
 #### 2.2.1. Client Identifiers
 
 Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
+
+Whenever feasible, the client identifier MUST correspond to the network-addressable location of the protected resource.
 
 \[[RFC6749](#rfc6749)\] and \[[RFC7591](#rfc7591)\] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in \[[OpenID.Federation](#openid-federation)\] also apply to this profile.
 
@@ -485,6 +493,10 @@ The `ui_locales_supported` parameter SHOULD be present and include Swedish (`sv`
 
 This section contains metadata parameters for optional OAuth 2.0 extensions that MAY be supported by an authorization server.
 
+**Metadata parameter:** `authorization_response_iss_parameter_supported`
+
+The `authorization_response_iss_parameter_supported` metadata parameter, as defined in \[[RFC9207](#rfc9207)\], indicates whether the authorization server supports including the `iss` (issuer) parameter in authorization responses to protect against [Authorization Server Mix-Up Attacks](#authorization-server-mix-up-attacks). An authorization server operating within a federation or serving clients that interact with multiple authorization servers SHOULD support the `iss` parameter and therefore set this metadata value to `true`.
+
 **Metadata parameter:** `dpop_signing_alg_values_supported`
 
 The `dpop_signing_alg_values_supported` parameter is assigned a JSON array listing the JWS algorithms supported by the authorization server for DPoP proof JWTs. The presence of this parameter signals that the authorization server supports the DPoP mechanism. See [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and \[[RFC9449](#rfc9449)\].
@@ -496,6 +508,10 @@ Authorization servers that support both mutual TLS clients as specified in \[[RF
 **Metadata parameter:** `tls_client_certificate_bound_access_tokens`
 
 The `tls_client_certificate_bound_access_tokens` parameter indicates authorization server support for mutual TLS client certificate-bound access tokens. See Section 3.3 of \[[RFC8705](#rfc8705)\].
+
+**Metadata parameter:** `https://id.oidc.se/disco/authnProviderSupported`
+
+The parameter tells whether the request extension parameter `https://id.oidc.se/param/authnProvider` is supported by the authorization server. See \[[OIDC.Sweden.Parameters](#oidc-parameters)\] and [Section 5.1.1.1, Extension Parameter for Controlling User Authentication at the Authorization Server](#extension-parameter-for-controlling-user-authentication-at-the-authorization-server).
 
 <a name="authorization-server-metadata-example"></a>
 ##### 3.1.1.11. Authorization Server Metadata Example
@@ -605,13 +621,15 @@ The token endpoint is used by different grant types, and specific requirements f
 <a name="token-requests"></a>
 ##### 3.3.2.1. Token Requests
 
-The following request parameters are REQUIRED for the client to pass to the authorization server’s endpoint, regardless of the grant type being used:
+The following request parameters are REQUIRED for the client to pass to the authorization server’s token endpoint, regardless of the grant type being used:
 
 - `grant_type` - The grant type used for the particular request. See [Section 5, Grant Types](#grant-types) for the different grant types specified in this profile.
 
 - `client_id` - The identifier for the client making the request. See [Section 2.2.1, Client Identifiers](#client-identifiers).
 
 Additional request parameters that are specific to each grant type apply and are specified for the respective grant type. See [Section 5, Grant Types](#grant-types).
+
+The client making the token request MUST authenticate using either the `private_key_jwt` method or, if supported by the authorization server and permitted by policy, Mutual TLS. See [Section 8.3.1, Signed JWT for Client Authentication](#signed-jwt-for-client-authentication) and [Section 8.3.2, Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication) for further requirements. The authorization server MUST reject any token request that lacks client authentication or uses a method not permitted by this profile.
 
 The authorization server MUST authenticate the client request before proceeding.
 
@@ -649,11 +667,11 @@ The following parameter requirements apply for authorization servers compliant w
 
 - `expires_in` - The lifetime for the access token in seconds. The parameter is REQUIRED. The value SHOULD be kept as low as practically possible.
 
-- `refresh_token` - A refresh token. This parameter is OPTIONAL.<br /><br />An authorization server compliant with this profile MUST NOT issue a refresh token if no user is involved (for example, the `client_credentials` grant), or if the user does not have a direct relationship with the authorization server (for example, the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant).
+- `refresh_token` - A refresh token. This parameter is OPTIONAL.
 
 - `scope` - The issued scope(s). Section 5.1 of \[[RFC6749](#rfc6749)\] states that the parameter is OPTIONAL if the scopes granted are the same as those requested by the client, and REQUIRED otherwise. This profile states that the inclusion of the parameter is RECOMMENDED, regardless of which scopes were granted.
 
-Example of an access token (in the form of a signed JWT) issued along with a refresh token:
+Example of a token response message holding an access token (in the form of a signed JWT) along with a refresh token:
 
 ```
 HTTP/1.1 200 OK
@@ -794,41 +812,276 @@ The endpoints on server1 do not share the same access rules and should therefore
 <a name="grant-types"></a>
 ## 5. Grant Types
 
+This section outlines the requirements for the grant types covered by this profile.
+
+It is RECOMMENDED that authorization servers support the `resource` parameter, as defined in \[[RFC8707](#rfc8707)\], for all grant types. Entities compliant with this profile and supporting the `resource` parameter MUST adhere to the requirements specified in [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
 <a name="authorization-code-grant"></a>
 ### 5.1. Authorization Code Grant
+
+Entities compliant with this profile that support or use the authorization code grant MUST adhere to the requirements in Section 4.1 (and its subsections) of \[[RFC6749](#rfc6749)\], along with the additions and clarifications provided below.
 
 <a name="authorization-requests"></a>
 #### 5.1.1. Authorization Requests
 
-> TODO: Note about multiple `redirect_uris`. See 2.3.2 of OAuth2.1
+A client compliant with this profile MUST construct the authorization request URI according to the parameter requirements specified below.
 
-> Recommend using JAR, (JWT-Secured Authorization Requests), according to RFC9101, if sensible data is transferred in the authorization request.
+- `response_type` - The parameter is REQUIRED and MUST contain the value `code`. Additional values MAY be included by space-delimiting them (`%x20`).
 
+- `client_id` — Specifies the identifier of the client initiating the request. See [Section 2.2.1, Client Identifiers](#client-identifiers). This parameter is REQUIRED.
 
-> TODO: Include PKCE reqs
+- `redirect_uri` — The URI to which the user should be redirected by the authorization server after processing. This parameter is REQUIRED if the client has multiple redirect URIs registered (see [Section 2.2.2.1, Redirect URIs](#redirect-uris)). If only one redirect URI is registered, use of this parameter is RECOMMENDED.
+
+- `scope` — The scope or scopes of the request. If multiple scope values are requested, they MUST be space-delimited. While this parameter is optional according to \[[RFC6749](#rfc6749)\], this profile designates it as RECOMMENDED. The rationale is that relying on an authorization server’s predefined default scopes can lead to interoperability issues if the server changes its defaults.<br /><br />Also see [Section 9.1, Defining and Using Scopes](#defining-and-using-scopes).
+
+- `resource` - An OPTIONAL parameter specifying the intended resource, or resources, for which the authorization request is made. It is RECOMMENDED that authorization servers support the `resource` parameter, as defined in \[[RFC8707](#rfc8707)\]. See [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
+- `state` — An opaque value used by the client to maintain state between the request and the response. This parameter is RECOMMENDED.<br /><br />The `state` parameter MUST NOT include sensitive information in plain text.<br /><br />It is RECOMMENDED that the state value be a one-time-use CSRF token that is securely bound to the user’s session.
+
+- `code_challenge` - Code challenge value for PKCE, see [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange). The parameter is REQUIRED.
+
+- `code_challenge_method` — The code challenge method. Although \[[RFC7636](#rfc7636)\] defines this parameter as optional and specifies `plain` as the default, this profile prohibits the use of the `plain` method. Therefore, this parameter is REQUIRED and MUST NOT be set to plain. See [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange) for details.
+
+Additional parameters MAY be included.
+
+**Note:** If the request is made according to "JWT-Secured Authorization Request (JAR)", \[[RFC9101](#rfc9101)\], or "OAuth 2.0 Pushed Authorization Requests", \[[RFC9126](#rfc9126)\], the requirements for the format of the request differ from what is stated above. See [Section 7.2, JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests) and [Section 7.3, PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests).
+
+An example of an HTTP GET request representing an OAuth 2.0 authorization request (with extra line breaks for display purposes):
+
+```
+GET /authorize?
+  response_type=code&
+  client_id=https%3A%2F%2Fclient.example.com&
+  redirect_uri=https%3A%2F%2Fclient.example.com%2Fcallback&
+  code_challenge=0x7Yt0nFnvGp4Af3GtrR7H8yWVD3ysKvl9P8z9vbYhME&
+  code_challenge_method=S256&
+  state=Z3k8MvB9QJzEr7a6X2Wa&
+  scope=https%3A%2F%2Fservice.example.com%2Fread%20https%3A%2F%2Fservice.example.com%2Fwrite
+HTTP/1.1
+Host: as.example.com
+```
+
+> The client, `https://client.example.com`, requests the scopes `https://service.example.com/read` and `https://service.example.com/write` by redirecting the user agent to the authorization server's `authorize` endpoint.
+
+An authorization server compliant with this profile MUST validate all authorization request messages to ensure that the required parameters, as listed in this section, are present and valid.
+
+The authorization server MUST reject the request if no `redirect_uri` is provided and the client has multiple redirect URIs registered.
+
+If the `redirect_uri` parameter is present in the request, the authorization server MUST ensure that it matches one of the URIs registered by the client (see [Section 2.2.2.1, Redirect URIs](#redirect-uris)). The URI comparison to determine equality MUST be performed according to Section 6.2.1 of \[[RFC3986](#rfc3986)\].
+
+The authorization server MUST NOT accept any request that omits the `code_challenge` parameter.
+
+If the request includes the `resource` parameter, and the authorization server supports this parameter, it MUST process this parameter as specified in [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
+<a name="extension-parameter-for-controlling-user-authentication-at-the-authorization-server"></a>
+##### 5.1.1.1. Extension Parameter for Controlling User Authentication at the Authorization Server
+
+A common scenario when using OAuth 2.0 is that an application (the client) has already logged in the user before directing them to the authorization server as part of an authorization request. Since the user also needs to be authenticated at the authorization server, this can result in a suboptimal user experience, where the user is prompted to authenticate multiple times.
+
+If both the application (client) and the authorization server use the same external authentication service, such as a SAML Identity Provider or an OpenID Connect Provider, this issue can be addressed using single sign-on (SSO). If the user already has an active session with the authentication service, the authorization server can take advantage of that session when requesting user authentication from the same service.
+
+This feature can significantly improve the user experience at the authorization server. However, if both the application and the authorization server support multiple authentication methods (or services), there must be a mechanism for the OAuth 2.0 client to indicate which authentication service should be used when (re-)authenticating the user.
+
+However, there is no standard OAuth 2.0 parameter for this purpose, and different solutions and products use proprietary extensions to address the problem described above. Section 2.2 of the [Authentication Request Parameter Extensions for the Swedish OpenID Connect Profile](https://www.oidc.se/specifications/request-parameter-extensions.html) specification, \[[OIDC.Sweden.Parameters](#oidc-parameters)\], defines the request parameter `https://id.oidc.se/param/authnProvider` to handle this issue.
+
+For authorization servers that support multiple user authentication methods, it is RECOMMENDED to support this parameter. Authorization servers that do support the parameter MUST indicate this in their metadata using the metadata parameter `https://id.oidc.se/disco/authnProviderSupported`. See [Section 3.1.1.10](#as-metadata-extensions).
 
 <a name="authorization-responses"></a>
 #### 5.1.2. Authorization Responses
 
-<a name="acg-token-endpoint"></a>
-#### 5.1.3. Token Endpoint
+Entities compliant with this profile MUST adhere to Section 4.1.2 of \[[RFC6749](#rfc6749)\], with the following additions and clarifications:
 
-> TODO: Include PKCE reqs
+* The value of the `code` parameter MUST be bound to the client identifier, code challenge, and redirect URI.
+
+* It is RECOMMENDED that authorization servers include the `iss` parameter in the authorization response, as defined in \[[RFC9207](#rfc9207)\], to protect against authorization server mix-up attacks (see [Section 8.5.3](#authorization-server-mix-up-attacks)). This applies to both successful and error responses.
+
+* An authorization server operating within a federation, or serving clients that interact with multiple authorization servers, SHOULD support and include the `iss` parameter.
+
+* An authorization server that supports the `iss` authorization response parameter MUST indicate this by setting the `authorization_response_iss_parameter_supported` parameter to `true` in its metadata document (see [Section 3.1.1.10](#as-metadata-extensions)).
+
+* A client that communicates with multiple authorization servers SHOULD support the processing of the `iss` parameter in accordance with the requirements in \[[RFC9207](#rfc9207)\].
+
+* For error responses, it is RECOMMENDED that the authorization server include the `error_description` parameter to provide additional information about the error. The text provided MUST NOT reveal sensitive information, violate user privacy, or expose details that could be useful to an attacker.
+
+Example of an authorization response message (line breaks added for readability):
+
+```
+HTTP/1.1 302 Found
+Location: https://client.example.com/callback?
+  code=SplxlOBeZQQYbYS6WxSbIA&
+  state=Z3k8MvB9QJzEr7a6X2Wa&
+  iss=https%3A%2F%2Fas.example.com
+```
+
+An example of an error response:
+
+```
+HTTP/1.1 302 Found
+Location: https://client.example.com/callback?
+  error=access_denied&
+  error_description=User%20did%20not%20consent&
+  state=Z3k8MvB9QJzEr7a6X2Wa&
+  iss=https%3A%2F%2Fas.example.com
+```
+
+<a name="access-token-requests-and-responses"></a>
+#### 5.1.3. Access Token Requests and Responses
+
+For requesting and providing an access token using the authorization code grant, entities compliant with this profile MUST adhere to Section 4.1.3 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
+
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled, and `grant_type` MUST be set to `authorization_code`.
+
+* The `code_verifier` parameter, which contains the original code verifier string, is REQUIRED. See the processing requirements in [Section 8.4.1, PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange).
+
+* The `redirect_uri` parameter is required by \[[RFC6749](#rfc6749)\] if the corresponding authorization request included a `redirect_uri` value. This requirement was originally introduced to prevent authorization code injection attacks. However, since the mandatory use of PKCE (see [Section 8.4.1](#pkce-proof-key-for-code-exchange)) offers more robust protection against such attacks, the `redirect_uri` parameter serves no practical purpose in this context. Therefore, to align with the upcoming \[[OAuth-2.1](#oauth21)\] specification, where `redirect_uri` is no longer used, this profile defines the following requirements:
+
+  - If the `redirect_uri` parameter is present in the request, the authorization server MUST process it according to the requirements stated in \[[RFC6749](#rfc6749)\].
+  
+  - If the `redirect_uri` is omitted, the authorization server MUST NOT reject the request, provided that the `code_verifier` parameter is present and successfully validated.
+
+* If the authorization server supports the `resource` parameter and it is included in the request, the authorization server MUST process it in accordance with [Section 7.1, The Resource Parameter](#the-resource-parameter).
+
+Example of an access token request message (line breaks added for readability):
+
+```
+POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&
+code=SplxlOBeZQQYbYS6WxSbIA&
+redirect_uri=https%3A%2F%2Fclient.example.com%2Fcallback&
+client_id=https%3A%2F%2Fclient.example.com&
+client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVudC5leGFtcGxlL \
+  mNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcy5leGFtcGxlLmNvbSIsI \
+  mV4cCI6MTY4MDAwMDAwMCwiaWF0IjoxNjgwMDAwMDAwLCJqdGkiOiJxa2x3ZWZka2pmcWx1cm1jdHZuZXZ5bXhwIn0.RGViX \
+  2V4YW1wbGVTaWduYXR1cmVIZXJl&
+code_verifier=bj3nhdD9fX1JVuTWBEtPZsG5dNxMCuKzLFFbItgQafM
+```
+
+If the access token request is valid and authorized, the authorization server issues an access token, possibly also a refresh token, and sends a response message as specified in [Section 3.3.2.2, Token Responses](#token-responses). Requirements for access tokens and refresh tokens are given in [Section 6.1, Access Tokens](#access-tokens) and [Section 6.2, Refresh Tokens](#refresh-tokens), respectively.
+
+If the access token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
 
 <a name="refresh-token-grant"></a>
 ### 5.2. Refresh Token Grant
 
-<a name="rtg-token-endpoint"></a>
-#### 5.2.1. Token Endpoint
+Entities compliant with this profile MUST adhere to Section 6 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
 
-<a name="refresh-token-requirements-and-recommendations"></a>
-#### 5.2.2. Refresh Token Requirements and Recommendations
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled, and `grant_type` MUST be set to `refresh_token`.
+
+* The authorization server MUST ensure that the received refresh token is bound to the client making the token request.
+
+* The authorization server MUST validate that the grant corresponding to the received refresh token is still active.
+
+* If the authorization server supports the `resource` parameter, it MUST support its use with the `refresh_token` grant. The requirements stated in [Section 7.1](#the-resource-parameter) apply.
+
+The response message for a token request using the `refresh_token` grant type MUST adhere to the requirements stated in [Section 3.3.2.2, Token Responses](#token-responses) with the following additions:
+
+* Unless refresh tokens are sender-constrained (see [Section 8.4.2](#dpop-demonstrating-proof-of-possession) or [Section 8.4.3](#binding-access-tokens-to-client-certificates-using-mutual-tls)), it is RECOMMENDED that each response message include a newly issued refresh token and that the previous refresh token is invalidated. This limits the lifetime of refresh tokens and reduces the risk of refresh token theft.
+
+* Clients MUST be prepared to receive a new refresh token in a response message.
+
+If the token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
+
+**Note:** See additional requirements for refresh tokens in [Section 6.2](#refresh-tokens).
 
 <a name="client-credentials-grant"></a>
 ### 5.3. Client Credentials Grant
 
+The `client_credentials` grant MAY be supported by authorization servers compliant with this profile.
+
+To request and issue an access token using the `client_credentials` grant, entities compliant with this profile MUST adhere to Section 4.4 of \[[RFC6749](#rfc6749)\] with the following additions and clarifications:
+
+* The base requirements for a token request, as specified in [Section 3.3.2.1, Token Requests](#token-requests), MUST be fulfilled, and the `grant_type` parameter MUST be set to `client_credentials`.
+
+* If the authorization server supports the `resource` parameter, it MUST also support its use with the `client_credentials` grant. The requirements stated in [Section 7.1](#the-resource-parameter) apply.
+
+Example of an access token request message using the `client_credentials` grant (line breaks added for readability):
+
+```
+POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&
+client_id=https%3A%2F%2Fclient.example.com&
+scope=https%3A%2F%2Fservice.example.com%2Fread&
+resource=https%3A%2F%2Fservice.example.com¶
+client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVudC5le \
+  GFtcGxlLmNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcy \
+  5leGFtcGxlLmNvbS90b2tlbiIsImV4cCI6MTcxNjA4ODAwMCwianRpIjoiYTkzODdlZTgtMzQ0Zi00YjM1LTg \
+  zNTUtMzI0NzdkNjFiNmM4In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+```
+
+The response message for a token request using the `client_credentials` grant type MUST adhere to the requirements stated in [Section 3.3.2.2, Token Responses](#token-responses), with the following addition:
+
+* A refresh token MUST NOT be issued in the response to a `client_credentials` token request.
+
+If the token request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
+
 <a name="other-grant-types"></a>
 ### 5.4. Other Grant Types
+
+Entities compliant with this profile MAY use extension grants not profiled in this document. However, when doing so, the requirements of this profile MUST still be fulfilled.
+
+The subsections below provide profiling for some extension grants that MAY be used by entities compliant with this profile.
+
+<a name="saml-assertion-authorization-grants"></a>
+#### 5.4.1. SAML Assertion Authorization Grants
+
+Using SAML assertions as authorization grants, as specified in \[[RFC7522](#rfc7522)\], MAY be used by entities compliant with this profile. However, if possible, it is RECOMMENDED to use the more standardized authorization code grant &mdash; possibly using the extension parameter as specified in [Section 5.1.1.1](#extension-parameter-for-controlling-user-authentication-at-the-authorization-server).
+
+If the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant is used, the requirements specified in \[[RFC7522](#rfc7522)\], along with the additions and clarifications below, MUST be fulfilled.
+
+* There MUST be an agreement between the client and the authorization server regarding the process of user consent. This consent may be implicit or explicit.
+
+* If the authorization server issues a refresh token in the token response, the requirements stated in [Section 6.2, Refresh Tokens](#refresh-tokens) MUST be fulfilled &mdash; specifically, the requirements regarding the need for an established relationship between the client and the authorization server concerning user authentication policies.
+
+* The assertion processing requirements stated in Section 3 of \[[RFC7522](#rfc7522)\] MUST be adhered to, along with the following addition to protect against audience injection attacks as described in \[[Audience.Injection](#audience-injection)\].<br /><br />The `AudienceRestriction` element of the SAML assertion MUST contain an `Audience` value that uniquely identifies the authorization server. The only other `Audience` value permitted within the `AudienceRestriction` element is that of the client. If other audience values appear in the assertion, the authorization server MUST reject the request.<br /><br />The authorization server MAY maintain a mapping of SAML entity identifiers to OAuth 2.0 identities in cases where client OAuth 2.0 entities differ from SAML Service Provider entity identifiers.
+
+Example of an access token request message using the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant (line breaks added for readability):
+
+```
+POST /token  
+Host: as.example.com  
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:saml2-bearer&
+scope=https%3A%2F%2Fservice.example.com%2Fread&
+assertion=PHNhbWxwOl...[Base64-encoded SAML2 Assertion]...ZT4%3D&
+client_id=https%3A%2F%2Fclient.example.com&
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVu \
+  dC5leGFtcGxlLmNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0 \
+  cHM6Ly9hcy5leGFtcGxlLmNvbS90b2tlbiIsImV4cCI6MTcwMDAwMDAwMCwiaWF0IjoxNzAwMDAwMDAw \
+  LCJqdGkiOiJ1bmlxdWUtaWQtMTIzIn0.MEUCIQDf3ddNZW7U9bMo6vHzgHtU0LR3EnuC2UOqGVoYZ7Br \
+  pgIgHYo9ZehyPKkhyRUL7zUvQeap3id9mM7zvBaGXjaeXkY
+```
+
+<a name="jwt-authorization-grants"></a>
+#### 5.4.2. JWT Authorization Grants
+
+Entities compliant with this profile MAY use JWT authorization grants, as specified in \[[RFC7523](#rfc7523)\], for specific use cases such as cross-domain scenarios where a JWT can be used as an authorization grant to obtain an access token from a different authorization server, see \[[OAuth.ID-Chaining](#oauth-id-chaining)\].
+
+This profile does not define specific requirements for the various use cases in which JWT authorization grants may be used, but the base requirements stated below MUST be adhered to by entities compliant with this profile.
+
+The requirements from Section 2.1 and 3.1 of \[[RFC7523](#rfc7523)\] MUST be fulfilled, with the following additions and clarifications:
+
+* The JWT MUST be digitally signed by the issuer of the JWT, and the authorization server MUST reject the request if the signature is missing or invalid.
+
+* The JWT MUST include the `client_id` claim, holding the client identifier (see [Section 2.2.1](#client-identifiers)) of the client making the request. The authorization server MUST verify that this claim value corresponds to the authenticated client making the request.
+
+* The JWT MUST include a `jti` claim (JWT ID) uniquely identifying the token. The authorization server MAY use this value for replay protection (if the current policy requires that each JWT may only be used once).
+
+* To protect against audience injection attacks as described in \[[Audience.Injection](#audience-injection)\], the JWT MUST contain an `aud` (audience) claim with the authorization server entity identifier (see [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier)) as its only value.<br /><br />
+The authorization server MUST reject the request if the `aud` claim does not contain its entity identifier (issuer identifier) as its only audience value.
+
+The response message for a token request using the `urn:ietf:params:oauth:grant-type:jwt-bearer` grant type MUST adhere to the requirements stated in [Section 3.3.2.2, Token Responses](#token-responses).
+
+If the request is rejected or invalid, the authorization server MUST send an error response as specified in [Section 3.3.2.3, Error Responses](#error-responses).
 
 <a name="prohibited-grant-types"></a>
 ### 5.5. Prohibited Grant Types
@@ -847,22 +1100,66 @@ This following grant types MUST NOT be used or supported by entities compliant w
 
 > TODO: Specify JWT access token format
 
-> If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
+> TODO: If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
 
 - `azp`?
+
+<a name="refresh-tokens"></a>
+### 6.2. Refresh Tokens
+
+An authorization server MUST NOT issue a refresh token if no end user is involved (for example, when using the `client_credentials` grant).
+
+If the user does not have a direct relationship with the authorization server (for example, when using the `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type), the authorization server MAY issue refresh tokens, provided that there is an established relationship between the client and the authorization server concerning user authentication policies. How this relationship is managed is out of scope for this profile.
+
+If refresh tokens are represented as JWTs, these JWTs MUST always be signed by the authorization server.
+
+It is RECOMMENDED that the authorization server encrypt refresh token JWTs using its own public key. This is to prevent exposing internal authorization server handling.
+
+An authorization server SHOULD invalidate the previous refresh token when issuing a new one to the client. Allowing multiple active refresh tokens for the same client and session increases the risk of attacks using the `refresh_token` grant.
+
+If the end user's session is no longer valid at the authorization server, i.e., the session has timed out or the user has logged out, all refresh tokens for that user MUST be revoked (invalidated).
+
+All refresh tokens MUST have an expiration time that makes them invalid if the client has not been active, i.e., has not used the refresh token, within that time. The expiration time is determined by local policy but SHOULD be kept as short as feasible. 
 
 <a name="optional-extensions"></a>
 ## 7. Optional Extensions
 
 This section provides profiles of OAuth 2.0 extensions that may be used by entities compliant with this profile.
 
+<a name="the-resource-parameter"></a>
+### 7.1. The Resource Parameter
+
+“Resource Indicators for OAuth 2.0”, \[[RFC8707](#rfc8707)\], defines the OAuth 2.0 `resource` parameter. Its purpose is to allow an OAuth 2.0 client to indicate the protected resource, or resources, it intends to access. This becomes particularly important when an authorization server protects multiple resources.
+
+[Section 9.1, Defining and Using Scopes](#defining-and-using-scopes) recommends that scopes be defined in a non-generic manner, bound to a single protected resource or to a function shared across multiple resources with a common access model. However, this approach may not always be feasible. Moreover, even when non-generic scopes are used, it may still be necessary to specify which resource the client intends to access.
+
+Therefore, for authorization servers and clients compliant with this profile, it is RECOMMENDED to support and use the `resource` parameter.
+
+Entities compliant with this profile that support the `resource` parameter MUST adhere to the requirements stated in \[[RFC8707](#rfc8707)\], with the following additions and clarifications:
+
+* Unless overridden by local policy, the client MUST use the Resource Identifier of the protected resource it is requesting access to as the value of the `resource` parameter. See [Section 4.3, Protected Resource Identity and Registration](#protected-resource-identity-and-registration).
+
+* An authorization server receiving a `resource` parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response where the `error` parameter is set to `invalid_target`. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.
+
+* For the authorization code grant, it is RECOMMENDED that each access token request<sup>\*</sup> include only one `resource` parameter, even if the original authorization request specified multiple resources. The rationale is to limit the audience of each access token. See also the discussion about scopes and resources in Section 2.2 of \[[RFC8707](#rfc8707)\].
+
+* If an access token request<sup>\*</sup> does not include the `resource` parameter, but the corresponding authorization request did, the following rules apply:
+
+    - If the original authorization request included only one resource, the authorization server MUST assume that the access token request is for that specific resource.
+    
+    - If the original authorization request included multiple resources, the authorization server MUST reject the request and respond with an error response where the `error` parameter is set to `invalid_target`.
+
+* The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The values in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
+
+> \[\*\]: By "access token request", we refer to a token request using the `authorization_code` or `refresh_token` grant type.
+
 <a name="jar-jwt-secured-authorization-requests"></a>
-### 7.1. JAR - JWT-Secured Authorization Requests
+### 7.2. JAR - JWT-Secured Authorization Requests
 
 \[[RFC9101](#rfc9101)\]
     
 <a name="par-oauth-2-0-pushed-authorization-requests"></a>
-### 7.2. PAR - OAuth 2.0 Pushed Authorization Requests
+### 7.3. PAR - OAuth 2.0 Pushed Authorization Requests
 
 \[[RFC9126](#rfc9126)\]
 
@@ -930,6 +1227,12 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 #### 8.3.1. Signed JWT for Client Authentication
 
 > `private_key_jwt`, RFC7523
+
+> In Section 3.2 of [RFC7523] (Client Authentication Processing), the following requirement is added:
+
+> Client authentication JWTs MUST be explicitly typed by using the typ header parameter value client-authentication+jwt another more specific explicit type value defined by a specification profiling this specification. Client authentication JWTs not using the explicit type value MUST be rejected by the authorization server.
+
+> TODO: Only one audience value must be present.
 
 <a name="mutual-tls-for-client-authentication"></a>
 #### 8.3.2. Mutual TLS for Client Authentication
@@ -1035,6 +1338,11 @@ To mitigate these types of attacks, this profile specifies the following require
 
 > **Note:** This profile is intended for general-purpose use and therefore does not mandate sender-constrained access tokens. However, profiles targeting high-security deployments that build upon this profile may choose to require sender-constrained tokens as a mandatory feature.
 
+<a name="authorization-server-mix-up-attacks"></a>
+#### 8.5.3. Authorization Server Mix-Up Attacks
+
+7.13
+
 <a name="requirements-for-interoperability"></a>
 ## 9. Requirements for Interoperability 
 
@@ -1123,6 +1431,14 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC7519\]**
 > [Jones, M., Bradley, J., and N. Sakimura, "JSON Web Token (JWT)", RFC 7519, DOI 10.17487/RFC7519, May 2015](https://datatracker.ietf.org/doc/html/rfc7519).
 
+<a name="rfc7522"></a>
+**\[RFC7522\]**
+> [Campbell, B., Mortimore, C., and M. Jones, "Security Assertion Markup Language (SAML) 2.0 Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7522, DOI 10.17487/RFC7522, May 2015](https://datatracker.ietf.org/doc/html/rfc7522).
+
+<a name="rfc7523"></a>
+**\[RFC7523\]**
+> [Jones, M., Campbell, B., and C. Mortimore, "JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7523, DOI 10.17487/RFC7523, May 2015](https://datatracker.ietf.org/doc/html/rfc7523).
+
 <a name="rfc7636"></a>
 **\[RFC7636\]**
 > [Sakimura, N., Ed., Bradley, J., and N. Agarwal, "Proof Key for Code Exchange by OAuth Public Clients", RFC 7636, DOI 10.17487/RFC7636, September 2015](https://www.rfc-editor.org/info/rfc7636).
@@ -1159,6 +1475,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC9126\]**
 > [Lodderstedt, T., Campbell, B., Sakimura, N., Tonge, D., and F. Skokan, "OAuth 2.0 Pushed Authorization Requests", RFC 9126, DOI 10.17487/RFC9126, September 2021](https://www.rfc-editor.org/info/rfc9126).
 
+<a name="rfc9207"></a>
+**\[RFC9207\]**
+> [Meyer zu Selhausen, K. and D. Fett, "OAuth 2.0 Authorization Server Issuer Identification", RFC 9207, DOI 10.17487/RFC9207, March 2022](https://www.rfc-editor.org/info/rfc9207).
+
 <a name="rfc9449"></a>
 **\[RFC9449\]**
 > [Fett, D., Campbell, B., Bradley, J., Lodderstedt, T., Jones, M., and D. Waite, "OAuth 2.0 Demonstrating Proof of Possession (DPoP)", RFC 9449, DOI 10.17487/RFC9449, September 2023](https://www.rfc-editor.org/info/rfc9449).
@@ -1183,6 +1503,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[OIDC.Sweden.Profile\]**
 > [The Swedish OpenID Connect Profile - Version 1.0](https://www.oidc.se/specifications/swedish-oidc-profile-1_0.html).
 
+<a name="oidc-parameters"></a>
+**\[OIDC.Sweden.Parameters\]**
+> [Authentication Request Parameter Extensions for the Swedish OpenID Connect Profile - Version 1.1](https://www.oidc.se/specifications/request-parameter-extensions.html).
+
 <a name="openid-discovery"></a>
 **\[OpenID.Discovery\]**
 > [Sakimura, N., Bradley, J., Jones, M., and E. Jay, "OpenID Connect Discovery 1.0 incorporating errata set 2", December 2023](https://openid.net/specs/openid-connect-discovery-1_0.html).
@@ -1193,6 +1517,14 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 
 <a name="informational-references"></a>
 ### 10.2. Informational References
+
+<a name="oauth21"></a>
+**\[OAuth-2.1\]**
+> [Hardt, D., Parecki, A., Lodderstedt, T., "The OAuth 2.1 Authorization Framework", Draft 12, November 2024](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/)
+
+<a name="oauth-id-chaining"></a>
+**\[OAuth.ID-Chaining\]**
+> [Schwenkschuster, A., Kasselmann, P., Burgin, K., Jenkins, M., Campbell, B., "OAuth Identity and Authorization Chaining Across Domains", Draft 4, February 2025](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/).
 
 <a name="openid-discovery"></a>
 **\[OpenID.Discovery\]**
@@ -1205,6 +1537,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="ena-federation"></a>
 **\[ENA.Federation\]**
 > [Ena OAuth 2.0 Federation Interoperability Profile](ena-oauth2-federation.md).
+
+<a name="audience-injection"></a>
+**\[Audience.Injection\]**
+> [Hosseyni, P., Küsters, R., and T. Würtele, "Audience Injection Attacks: A New Class of Attacks on Web-Based Authorization and Authentication Standards", Cryptology ePrint Archive Paper 2025/629, April 2025](https://eprint.iacr.org/2025/629).
 
  
 
