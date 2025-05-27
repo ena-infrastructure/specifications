@@ -830,7 +830,7 @@ A client compliant with this profile MUST construct the authorization request UR
 
 - `redirect_uri` — The URI to which the user should be redirected by the authorization server after processing. This parameter is REQUIRED if the client has multiple redirect URIs registered (see [Section 2.2.2.1, Redirect URIs](#redirect-uris)). If only one redirect URI is registered, use of this parameter is RECOMMENDED.
 
-- `scope` — The scope or scopes of the request. If multiple scope values are requested, they MUST be space-delimited. While this parameter is optional according to \[[RFC6749](#rfc6749)\], this profile designates it as RECOMMENDED. The rationale is that relying on an authorization server’s predefined default scopes can lead to interoperability issues if the server changes its defaults.<br /><br />Also see [Section 9.1, Defining and Using Scopes](#defining-and-using-scopes).
+- `scope` — The scope or scopes of the request. If multiple scope values are requested, they MUST be space-delimited (`%20`). While this parameter is optional according to \[[RFC6749](#rfc6749)\], this profile designates it as RECOMMENDED. The rationale is that relying on an authorization server’s predefined default scopes can lead to interoperability issues if the server changes its defaults.<br /><br />Also see [Section 9.1, Defining and Using Scopes](#defining-and-using-scopes).
 
 - `resource` - An OPTIONAL parameter specifying the intended resource, or resources, for which the authorization request is made. It is RECOMMENDED that authorization servers support the `resource` parameter, as defined in \[[RFC8707](#rfc8707)\]. See [Section 7.1, The Resource Parameter](#the-resource-parameter).
 
@@ -1006,7 +1006,7 @@ Content-Type: application/x-www-form-urlencoded
 grant_type=client_credentials&
 client_id=https%3A%2F%2Fclient.example.com&
 scope=https%3A%2F%2Fservice.example.com%2Fread&
-resource=https%3A%2F%2Fservice.example.com¶
+resource=https%3A%2F%2Fservice.example.com&
 client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
 client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NsaWVudC5le \
   GFtcGxlLmNvbSIsInN1YiI6Imh0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcy \
