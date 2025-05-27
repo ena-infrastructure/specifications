@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-05-20
+### Version: 1.0 - draft 01 - 2025-05-27
 
 ## Abstract
 
@@ -96,9 +96,9 @@ Over the years, numerous extensions and features have been introduced, making â€
 
     7.1. [The Resource Parameter](#the-resource-parameter)
 
-    7.2. [JAR - JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
+    7.2. [JAR &mdash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
     
-    7.3. [PAR - OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
+    7.3. [PAR &mdash; OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
 
 8. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
 
@@ -114,9 +114,9 @@ Over the years, numerous extensions and features have been introduced, making â€
 
     8.4. [OAuth 2.0 Security Mechanisms](#oauth-20-security-mechanisms)
 
-    8.4.1. [PKCE - Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange)
+    8.4.1. [PKCE &mdash; Proof Key for Code Exchange](#pkce-proof-key-for-code-exchange)
     
-    8.4.2. [DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession)
+    8.4.2. [DPoP &mdash; Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession)
 
     8.4.3. [Binding Access Tokens to Client Certificates using Mutual TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls)
 
@@ -226,8 +226,6 @@ However, for interoperability reasons, the requirements stated in the subsection
 #### 2.2.1. Client Identifiers
 
 Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
-
-Whenever feasible, the client identifier MUST correspond to the network-addressable location of the protected resource.
 
 \[[RFC6749](#rfc6749)\] and \[[RFC7591](#rfc7591)\] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for â€œEntity Identifiersâ€ as defined in \[[OpenID.Federation](#openid-federation)\] also apply to this profile.
 
@@ -786,7 +784,7 @@ If the protected resource is functioning in a multi-domain, or federative, conte
 
 A protected resource MAY support publication of its metadata according to "OAuth 2.0 Protected Resource Metadata", \[[RFC9728](#rfc9728)\].
 
-It is RECOMMENDED that a protected resource be assigned a resource identifier that corresponds to the URL at which it exposes its service.
+Whenever feasible, the resource identifier MUST correspond to the network-addressable location of the protected resource &mdash; that is, the URL at which it exposes its service.
 
 Furthermore, if a resource server hosts multiple resources that do not share the same access rules, it is RECOMMENDED that these resources be treated as separate protected resources, and thus be represented with their own resource identifiers.
 
@@ -1154,12 +1152,12 @@ Entities compliant with this profile that support the `resource` parameter MUST 
 > \[\*\]: By "access token request", we refer to a token request using the `authorization_code` or `refresh_token` grant type.
 
 <a name="jar-jwt-secured-authorization-requests"></a>
-### 7.2. JAR - JWT-Secured Authorization Requests
+### 7.2. JAR &mdash; JWT-Secured Authorization Requests
 
 \[[RFC9101](#rfc9101)\]
     
 <a name="par-oauth-2-0-pushed-authorization-requests"></a>
-### 7.3. PAR - OAuth 2.0 Pushed Authorization Requests
+### 7.3. PAR &mdash; OAuth 2.0 Pushed Authorization Requests
 
 \[[RFC9126](#rfc9126)\]
 
@@ -1245,7 +1243,7 @@ The sender of a secure message MUST NOT use an algorithm that is not set as REQU
 ### 8.4. OAuth 2.0 Security Mechanisms
 
 <a name="pkce-proof-key-for-code-exchange"></a>
-#### 8.4.1. PKCE - Proof Key for Code Exchange
+#### 8.4.1. PKCE &mdash; Proof Key for Code Exchange
 
 Proof Key for Code Exchange (PKCE) is defined in \[[RFC7636](#rfc7636)\]. It t was originally designed to protect native applications from authorization code exfiltration attacks, but it is also used as a countermeasure against "Authorization Code Injection" attacks, see [Section 8.5.1](#injection-of-authorization-code), below.
 
@@ -1268,7 +1266,7 @@ An authorization server receiving a token request where grant_type is `authoriza
 Finally, an authorization server receiving an access token request MUST verify the supplied `code_verifier` according to Section 4.6 of \[[RFC7636](#rfc7636)\].
 
 <a name="dpop-demonstrating-proof-of-possession"></a>
-#### 8.4.2. DPoP - Demonstrating Proof of Possession
+#### 8.4.2. DPoP &mdash; Demonstrating Proof of Possession
 
 For deployments that make use of the DPoP (Demonstrating Proof of Possession) mechanism as specified in \[[RFC9449](#rfc9449)\], this profile introduces the following clarifications and additions:
 
