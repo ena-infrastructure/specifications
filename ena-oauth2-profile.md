@@ -90,6 +90,8 @@ Over the years, numerous extensions and features have been introduced, making ‚Ä
 
     6.1. [Access Tokens](#access-tokens)
 
+    6.1.1. [The Audience Claim](#the-audience-claim)
+
     6.2. [Refresh Tokens](#refresh-tokens)
     
 7. [**Optional Extensions**](#optional-extensions)
@@ -131,6 +133,8 @@ Over the years, numerous extensions and features have been introduced, making ‚Ä
 9. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
     9.1. [Defining and Using Scopes](#defining-and-using-scopes)
+
+    9.2. [Issuing Access Tokens for Multiple Resources](#issuing-access-tokens-for-multiple-resources)
 
 10. [**References**](#references)
 
@@ -745,7 +749,8 @@ Resource servers compliant with this profile MUST validate JWT access tokens as 
     
 * If a protected resource's access rules are based on scopes, the JWT MUST include the `scope` claim (see Section 2.2.3 of \[[RFC9068](#rfc9068)\]) with an appropriate scope value. Otherwise, the access token MUST be rejected.
 
-> TODO: Clarify requirement on validation of `aud` claim ...
+* The protected resource MUST validate the `aud` claim and reject the access token if the claim does not contain a resource indicator value corresponding to an identifier the resource expects for itself (see [Section 4.3](#protected-resource-identity-and-registration)). To support legacy solutions, a protected resource MAY maintain a list of valid identifiers for itself. In such cases, at least one of these identifiers MUST match a value received in the `aud` claim. Also see [Section 6.1.1, The Audience Claim](#the-audience-claim).
+
 
 <a name="resource-server-error-responses"></a>
 ### 4.2. Resource Server Error Responses
@@ -1100,9 +1105,12 @@ This following grant types MUST NOT be used or supported by entities compliant w
 
 > TODO: If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
 
-> About `aud`: the resource server should assume its resource identifier, but should also be able to handle aud-values that map directly to the invoked URL (if different from the resource identifier).
-
 - `azp`?
+
+<a name="the-audience-claim"></a>
+#### 6.1.1. The Audience Claim
+
+> About `aud`: the resource server should assume its resource identifier, but should also be able to handle aud-values that map directly to the invoked URL (if different from the resource identifier).
 
 <a name="refresh-tokens"></a>
 ### 6.2. Refresh Tokens
@@ -1149,7 +1157,9 @@ Entities compliant with this profile that support the `resource` parameter MUST 
     
     - If the original authorization request included multiple resources, the authorization server MUST reject the request and respond with an error response where the `error` parameter is set to `invalid_target`.
 
-* The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The values in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
+* The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The value(s) in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
+
+    - Note that the authorization server **MAY** also add other audience values to the token; see [Section 6.1.1, The Audience Claim](#the-audience-claim). This may be done to support legacy resources that use audience indicators other than those specified by this profile.
 
 > \[\*\]: By "access token request", we refer to a token request using the `authorization_code` or `refresh_token` grant type.
 
@@ -1388,6 +1398,11 @@ It is RECOMMENDED that scope values unique to a single protected resource be con
 An authorization server MAY choose to map a unique scope to a different scope value when including scopes in an access token. This can be useful, for example, when the protected resource is a legacy system with hardcoded scope definitions. Referring to the example above, if a client requests the `https://server.example.com/api/read` scope, the resulting JWT access token could instead contain the scope `read`.
 
 However, if the protected resource implements ‚ÄúOAuth 2.0 Protected Resource Metadata‚Äù, \[[RFC9728](#rfc9728)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` parameter in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
+
+<a name="issuing-access-tokens-for-multiple-resources"></a>
+### 9.2. Issuing Access Tokens for Multiple Resources
+
+> TODO: Discuss using "wide" access tokens with multiple audiences vs. using audience values mapping to shared identifiers.
 
 <a name="references"></a>
 ## 10. References
