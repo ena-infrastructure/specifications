@@ -878,7 +878,7 @@ A common scenario when using OAuth 2.0 is that an application (the client) has a
 
 If both the application (client) and the authorization server use the same external authentication service, such as a SAML Identity Provider or an OpenID Connect Provider, this issue can be addressed using single sign-on (SSO). If the user already has an active session with the authentication service, the authorization server can take advantage of that session when requesting user authentication from the same service.
 
-This feature can significantly improve the user experience at the authorization server. However, if both the application and the authorization server support multiple authentication methods (or services), there must be a mechanism for the OAuth 2.0 client to indicate which authentication service should be used when (re-)authenticating the user.
+This feature can significantly improve the user experience at the authorization server. However, if both the application and the authorization server support multiple authentication methods (or services), there must be a mechanism for the OAuth 2.0 client to indicate which authentication method (or service) should be used when (re-)authenticating the user.
 
 However, there is no standard OAuth 2.0 parameter for this purpose, and different solutions and products use proprietary extensions to address the problem described above. Section 2.2 of the [Authentication Request Parameter Extensions for the Swedish OpenID Connect Profile](https://www.oidc.se/specifications/request-parameter-extensions.html) specification, \[[OIDC.Sweden.Parameters](#oidc-parameters)\], defines the request parameter `https://id.oidc.se/param/authnProvider` to handle this issue.
 
@@ -1099,6 +1099,8 @@ This following grant types MUST NOT be used or supported by entities compliant w
 > TODO: Specify JWT access token format
 
 > TODO: If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
+
+> About `aud`: the resource server should assume its resource identifier, but should also be able to handle aud-values that map directly to the invoked URL (if different from the resource identifier).
 
 - `azp`?
 
