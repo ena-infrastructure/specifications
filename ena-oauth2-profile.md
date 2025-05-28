@@ -92,6 +92,8 @@ Over the years, numerous extensions and features have been introduced, making �
 
     6.1.1. [The Audience Claim](#the-audience-claim)
 
+    6.1.2. [The Subject Claim](#the-subject-claim)
+
     6.2. [Refresh Tokens](#refresh-tokens)
     
 7. [**Optional Extensions**](#optional-extensions)
@@ -133,8 +135,10 @@ Over the years, numerous extensions and features have been introduced, making �
 9. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
     9.1. [Defining and Using Scopes](#defining-and-using-scopes)
+    
+    9.2. [Using OpenID Connect Identity Scopes](#using-openid-connect-identity-scopes)
 
-    9.2. [Issuing Access Tokens for Multiple Resources](#issuing-access-tokens-for-multiple-resources)
+    9.3. [Issuing Access Tokens for Multiple Resources](#issuing-access-tokens-for-multiple-resources)
 
 10. [**References**](#references)
 
@@ -1101,16 +1105,75 @@ This following grant types MUST NOT be used or supported by entities compliant w
 <a name="access-tokens"></a>
 ### 6.1. Access Tokens
 
-> TODO: Specify JWT access token format
+This section specifies requirements for JWT access tokens that MUST be adhered to by entities compliant with this profile.
 
-> TODO: If an authorization request includes a scope parameter, the corresponding issued JWT access token MUST include a `scope` claim. Section 2.2.3 of \[[RFC9068](#rfc9068)\].
+An authorization server compliant with this profile MUST issue JWT access tokens according to the requirements specified in Sections 2.1 and 2.2 of \[[RFC9068](#rfc9068)\] with the following additions and clarifications:
 
-- `azp`?
+- The `iss` claim MUST be assigned the value of the authorization server entity identifier as defined in [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier).
+
+- The `aud` (audience) claim MUST be present and follow the requirements specified in [Section 6.1.1](#the-audience-claim) below.
+
+- The `sub` (subject) claim MUST be present and follow the requirements specified in [Section 6.1.2](#the-subject-claim) below.
+
+- The `client_id` claim MUST be present and be assigned the client identifier as defined in [Section 2.2.1, Client Identifiers](#client-identifiers).
+
+    - Some OAuth 2.0 software makes use of the `azp` claim, as defined by \[[OpenID.Core](#openid-core)\]. If present, its value MUST be the same as the value of the `client_id`.
+
+- If the authorization request or token request included a `scope` parameter, the `scope` claim, as defined in Section 4.2 of \[[RFC8693](#rfc8693)\], MUST be included in the JWT and contain the value(s) of the granted scope(s) for the given audience (or audiences).<br /><br />The value of the `scope` claim MUST be the same as the value provided in the `scope` parameter of the token response (see [Section 3.3.2.2](#token-responses)).
+
+- The authorization server MAY include authentication information claims, as described in Section 2.2.1 of \[[RFC9068](#rfc9068)\], if the protected resource requires this information to grant access based on the access token.
+
+- The authorization server MAY include identity claims about the resource owner (user) in the JWT. However, an authorization server MUST NOT include identity information in an access token if any of the intended audiences is not authorized to receive that information. This requirement also applies to the client, since it has the ability to access the access token. How this authorization is maintained is out of scope for this profile.<br /><br />Also, see [Section 9.2, Using OpenID Connect Identity Scopes](#using-openid-connect-identity-scopes).
+
+- An authorization server MAY include the `act` claim, as defined in Section 4.1 of \[[RFC8693](#rfc8693)\], in order to represent delegation and to identify the acting party to whom authority has been delegated.
+
+- An authorization server MAY add additional claims based on local policy or bilateral agreements.
+
+Also see [Section 4.1](#validation-of-access-tokens) for requirements regarding validation of JWT access tokens.
+
+Example payload of an JWT access token:
+
+```json
+{
+  "iss": "https://as.example.com",
+  "sub": "user123",
+  "aud": "https://api.example.com",
+  "exp": 1759158000,
+  "iat": 1759154400,
+  "scope": "read write",
+  "client_id": "https://client.example.com",
+  "jti": "a1b2c3d4e5f6"
+}
+```
+
+Extended example where the authorization server includes authentication information (the authentication context class and user authentication time), and a Swedish personal identity number for the subject (user):
+
+```json
+{
+  "iss": "https://as.example.com",
+  "sub": "user123",
+  "https://id.oidc.se/claim/personalIdentityNumber" : "198509276112",
+  "aud": "https://api.example.com",
+  "exp": 1759158000,
+  "iat": 1759154400,
+  "scope": "read write",
+  "client_id": "https://client.example.com",
+  "jti": "a1b2c3d4e5f6"
+  "auth_time": "1759154340",
+  "acr": "http://id.elegnamnden.se/loa/1.0/loa3"
+}
+```
 
 <a name="the-audience-claim"></a>
 #### 6.1.1. The Audience Claim
 
 > About `aud`: the resource server should assume its resource identifier, but should also be able to handle aud-values that map directly to the invoked URL (if different from the resource identifier).
+
+<a name="the-subject-claim"></a>
+#### 6.1.2. The Subject Claim
+
+> TODO: recommend against using p-nr in subject
+> Client credentials. Subject -> client_id
 
 <a name="refresh-tokens"></a>
 ### 6.2. Refresh Tokens
@@ -1399,8 +1462,13 @@ An authorization server MAY choose to map a unique scope to a different scope va
 
 However, if the protected resource implements “OAuth 2.0 Protected Resource Metadata”, \[[RFC9728](#rfc9728)\], scope mapping in the authorization server SHOULD NOT be performed. In such cases, the `scopes_supported` parameter in the protected resource metadata would not align with the actual scopes used by clients, leading to inconsistency and potential interoperability issues.
 
+<a name="using-openid-connect-identity-scopes"></a>
+### 9.2. Using OpenID Connect Identity Scopes
+
+> Also include identity scopes.
+
 <a name="issuing-access-tokens-for-multiple-resources"></a>
-### 9.2. Issuing Access Tokens for Multiple Resources
+### 9.3. Issuing Access Tokens for Multiple Resources
 
 > TODO: Discuss using "wide" access tokens with multiple audiences vs. using audience values mapping to shared identifiers.
 
@@ -1458,6 +1526,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 **\[RFC7636\]**
 > [Sakimura, N., Ed., Bradley, J., and N. Agarwal, "Proof Key for Code Exchange by OAuth Public Clients", RFC 7636, DOI 10.17487/RFC7636, September 2015](https://www.rfc-editor.org/info/rfc7636).
 
+<a name="rfc8725"></a>
+**\[RFC8725\]**
+> [Sheffer, Y., Hardt, D., and M. Jones, "JSON Web Token Best Current Practices", RFC 8725, DOI 10.17487/RFC8725, June 2020](https://www.rfc-editor.org/info/rfc8725).
+
 <a name="rfc8414"></a>
 **\[RFC8414\]**
 > [Jones, M., Sakimura, N., and J. Bradley, "OAuth 2.0 Authorization Server Metadata", RFC 8414, DOI 10.17487/RFC8414, June 2018](https://datatracker.ietf.org/doc/html/rfc8414).
@@ -1465,6 +1537,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="rfc8615"></a>
 **\[RFC8615\]**
 > [Nottingham, M., "Well-Known Uniform Resource Identifiers (URIs)", RFC 8615, May 2019](https://datatracker.ietf.org/doc/html/rfc8615).
+
+<a name="rfc8693"></a>
+**\[RFC8693\]**
+> [Jones, M., Campbell, B., and D. Waite, "OAuth 2.0 Token Exchange", RFC 8693, DOI 10.17487/RFC8693, January 2020](https://www.rfc-editor.org/info/rfc8693).
 
 <a name="rfc8705"></a>
 **\[RFC8705\]**
@@ -1540,6 +1616,10 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 <a name="oauth-id-chaining"></a>
 **\[OAuth.ID-Chaining\]**
 > [Schwenkschuster, A., Kasselmann, P., Burgin, K., Jenkins, M., Campbell, B., "OAuth Identity and Authorization Chaining Across Domains", Draft 4, February 2025](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/).
+
+<a name="openid-core"></a>
+**\[OpenID.Core\]**
+> [Sakimura, N., Bradley, J., Jones, M., de Medeiros, B. and C. Mortimore, "OpenID Connect Core 1.0", August 2015](https://openid.net/specs/openid-connect-core-1_0.html).
 
 <a name="openid-discovery"></a>
 **\[OpenID.Discovery\]**
