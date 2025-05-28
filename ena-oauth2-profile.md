@@ -1157,7 +1157,7 @@ Entities compliant with this profile that support the `resource` parameter MUST 
     
     - If the original authorization request included multiple resources, the authorization server MUST reject the request and respond with an error response where the `error` parameter is set to `invalid_target`.
 
-* The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. The value(s) in the `aud` claim MUST be the Resource Identifier(s) of the corresponding protected resource(s). 
+* The authorization server MUST audience-restrict issued tokens (using the `aud` claim) to the resource(s) indicated by the `resource` parameter(s) in the access token request. For each indicated resource, the `aud` claim MUST contain its resource identifier. 
 
     - Note that the authorization server **MAY** also add other audience values to the token; see [Section 6.1.1, The Audience Claim](#the-audience-claim). This may be done to support legacy resources that use audience indicators other than those specified by this profile.
 
