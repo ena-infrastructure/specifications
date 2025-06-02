@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-05-27
+### Version: 1.0 - draft 01 - 2025-06-02
 
 ## Abstract
 
@@ -98,9 +98,9 @@ Over the years, numerous extensions and features have been introduced, making â€
 
     7.1. [The Resource Parameter](#the-resource-parameter)
 
-    7.2. [JAR &mdash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
+    7.2. [JAR &ndash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
     
-    7.3. [PAR &mdash; OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
+    7.3. [PAR &ndash; OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests)
 
 8. [**Security Requirements and Considerations**](#security-requirements-and-considerations)
 
@@ -338,6 +338,14 @@ A client that always uses DPoP for token requests MUST register the `dpop_bound_
 
 A client that will requests mutual TLS client certificate-bound access tokens MUST register the   `tls_client_certificate_bound_access_tokens` parameter and set its value to `true`. See Section 3.4 of \[[RFC8705](#rfc8705)\].
 
+**Metadata parameter:** `require_signed_request_object`
+
+Indicates where authorization request needs to be protected as Request Object and provided through either request or request_uri parameter. See Section 10.5 of \[[RFC9101](#rfc9101)\] and [Section 7.2, JAR &ndash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests).
+
+**Metadata parameter:** `require_pushed_authorization_requests`
+
+Indicates whether the client is required to use PAR to initiate authorization requests. See Section 6 of \[[RFC9126](#rfc9126)\].
+
 <a name="connections-to-protected-resources"></a>
 ### 2.3. Connections to Protected Resources
 
@@ -414,6 +422,10 @@ The authorization endpoint URL MUST NOT include a fragment component, but MAY in
 The `token_endpoint` parameter contains the fully qualified URL of the authorization serverâ€™s token endpoint, as defined in \[[RFC6749](#rfc6749)\]. This parameter is REQUIRED.
 
 The token endpoint URL MUST NOT include a fragment component, but MAY include a query string.
+
+**Metadata parameter:** `pushed_authorization_request_endpoint`
+
+URL of the authorization server's pushed authorization request endpoint. See Section 5 of \[[RFC9126](#rfc9126)\]. The parameter is REQUIRED for authorization servers supporting Pushed Authorization Requests (PAR), see [Section 7.3, PAR &ndash; OAuth 2.0 Pushed Authorization Requests](#par-oauth-2-0-pushed-authorization-requests).
 
 The parameters `registration_endpoint`, `revocation_endpoint` and `introspection_endpoint` are OPTIONAL, and their presence depends on whether the authorization server supports the corresponding features.
 
@@ -510,6 +522,10 @@ Authorization servers that support both mutual TLS clients as specified in \[[RF
 **Metadata parameter:** `tls_client_certificate_bound_access_tokens`
 
 The `tls_client_certificate_bound_access_tokens` parameter indicates authorization server support for mutual TLS client certificate-bound access tokens. See Section 3.3 of \[[RFC8705](#rfc8705)\].
+
+**Metadata parameter:** `require_signed_request_object`
+
+Indicates where authorization request needs to be protected as Request Object and provided through either `request` or `request_uri` parameter. See Section 10.5 of \[[RFC9101](#rfc9101)\] and [Section 7.2, JAR &ndash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests). MAY be assigned by authorization servers supporting JAR according to \[[RFC9101](#rfc9101)\].
 
 **Metadata parameter:** `https://id.oidc.se/disco/authnProviderSupported`
 
@@ -1164,14 +1180,34 @@ Entities compliant with this profile that support the `resource` parameter MUST 
 > \[\*\]: By "access token request", we refer to a token request using the `authorization_code` or `refresh_token` grant type.
 
 <a name="jar-jwt-secured-authorization-requests"></a>
-### 7.2. JAR &mdash; JWT-Secured Authorization Requests
+### 7.2. JAR &ndash; JWT-Secured Authorization Requests
 
-\[[RFC9101](#rfc9101)\]
+\[[RFC9101](#rfc9101)\] defines a method for securing OAuth 2.0 authorization requests by encapsulating them in a JSON Web Token (JWT). This approach is known as the JWT-Secured Authorization Request (JAR).
+
+In the traditional OAuth 2.0 authorization request, parameters such as `client_id`, `redirect_uri`, `scope`, and `state` are passed as query parameters in the URL. This can expose sensitive information, make requests tamperable, and limit request size. JAR addresses these issues by allowing the authorization request to be passed as a signed and optionally encrypted JWT.
+
+The `request` and `request_uri` parameters were defined in \[[OpenID.Core](#openid-core)\], and \[[RFC9101](#rfc9101)\] generalizes this concept for OAuth 2.0. It defines how any OAuth client can use a JWT to encapsulate authorization request parameters, using the same `request` and `request_uri` parameters introduced by OpenID Connect.
+
+Support for \[[RFC9101](#rfc9101)\] by an authorization server compliant with this profile is OPTIONAL. However, an authorization server that also functions as an OpenID Provider SHOULD support the use of at least the `request` parameter for OAuth 2.0 authorization requests.
+
+It is RECOMMENDED that high-security deployments with requirements for request integrity and authenticity make use of \[[RFC9101](#rfc9101)\], or Pushed Authorization Requests as described in the section below.
     
 <a name="par-oauth-2-0-pushed-authorization-requests"></a>
-### 7.3. PAR &mdash; OAuth 2.0 Pushed Authorization Requests
+### 7.3. PAR &ndash; OAuth 2.0 Pushed Authorization Requests
 
-\[[RFC9126](#rfc9126)\]
+Pushed Authorization Requests (PAR), defined in \[[RFC9126](#rfc9126)\], introduce a mechanism for OAuth 2.0 clients to push the authorization request parameters directly to the authorization server via a secure, direct HTTPS request. Instead of including all parameters in the front-channel (i.e., via the browser redirect), the client sends them to the server's PAR endpoint and receives a `request_uri`. This URI is then used in the subsequent authorization request.
+
+This decouples the transmission of sensitive request parameters from the browser, reducing exposure and improving integrity and confidentiality. Some of the benefits are:
+
+- Improved security: Prevents manipulation of request parameters by removing them from the front-channel.
+
+- Request integrity: The pushed request is directly bound to the client using client authentication (see Section [8.3](#client-authentication)).
+
+- Supports large requests: Avoids URL length limitations by using POST.
+
+- Facilitates JAR (\[[RFC9101](#rfc9101)\]): Works well with JWT-secured authorization requests.
+
+It is RECOMMENDED that high-security deployments with requirements for request integrity and authenticity make use of Pushed Authorization Requests (PAR), or JAR (\[[RFC9101](#rfc9101)\]) as described in the previous section.
 
 <a name="security-requirements-and-considerations"></a>
 ## 8. Security Requirements and Considerations
