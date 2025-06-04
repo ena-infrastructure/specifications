@@ -791,7 +791,7 @@ If the protected resource is functioning in a multi-domain, or federative, conte
 
 A protected resource MAY support publication of its metadata according to "OAuth 2.0 Protected Resource Metadata", \[[RFC9728](#rfc9728)\].
 
-Whenever feasible, the resource identifier MUST correspond to the network-addressable location of the protected resource &mdash; that is, the URL at which it exposes its service.
+Whenever feasible, the resource identifier SHOULD correspond to the network-addressable location of the protected resource &mdash; that is, the URL at which it exposes its service.
 
 Furthermore, if a resource server hosts multiple resources that do not share the same access rules, it is RECOMMENDED that these resources be treated as separate protected resources, and thus be represented with their own resource identifiers.
 
@@ -1107,6 +1107,12 @@ This section specifies requirements for JWT access tokens that MUST be adhered t
 
 An authorization server compliant with this profile MUST issue JWT access tokens according to the requirements specified in Sections 2.1 and 2.2 of \[[RFC9068](#rfc9068)\] with the following additions and clarifications:
 
+- The JWT MUST be signed and the authorization server MUST use a signature algorithm known to be supported by the intended audience(s). If no information about the audience's signature preferences exists, a signature algorithm marked as required to support in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms) MUST be used.
+
+  - It is RECOMMENDED that the authorization server include the `kid` parameter, uniquely identifying the signature key, in the JWT header. An authorization server that has more than one registered key (see [Section 3.1.1.3, JSON Web Key Set](#as-json-web-key-set)) MUST include a `kid` parameter. 
+  
+- A JWT access token containing sensitive information MAY be encrypted according to \[[RFC7516](#rfc7516)\]. If the access token has multiple audiences, its contents MUST be encrypted for each recipient using the JWE JSON Serialization format, as specified in Section 7.2 of \[[RFC7516](#rfc7516)\].
+
 - The `iss` claim MUST be assigned the value of the authorization server entity identifier as defined in [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier).
 
 - The `aud` (audience) claim MUST be present and follow the requirements specified in [Section 6.1.1](#the-audience-claim) below.
@@ -1117,7 +1123,7 @@ An authorization server compliant with this profile MUST issue JWT access tokens
 
     - Some OAuth 2.0 software makes use of the `azp` claim, as defined by \[[OpenID.Core](#openid-core)\]. If present, its value MUST be the same as the value of the `client_id`.
 
-- If the authorization request or token request included a `scope` parameter, the `scope` claim, as defined in Section 4.2 of \[[RFC8693](#rfc8693)\], MUST be included in the JWT and contain the value(s) of the granted scope(s) for the given audience (or audiences).<br /><br />The value of the `scope` claim MUST be the same as the value provided in the `scope` parameter of the token response (see [Section 3.3.2.2](#token-responses)).
+- If the authorization request or token request included a `scope` parameter, the `scope` claim, as defined in Section 4.2 of \[[RFC8693](#rfc8693)\], MUST be included in the JWT and contain the value(s) of the granted scope(s).<br /><br />The value of the `scope` claim MUST be the same as the value provided in the `scope` parameter of the token response (see [Section 3.3.2.2](#token-responses)).
 
 - The authorization server MAY include authentication information claims, as described in Section 2.2.1 of \[[RFC9068](#rfc9068)\], if the protected resource requires this information to grant access based on the access token.
 
@@ -1131,7 +1137,20 @@ An authorization server compliant with this profile MUST issue JWT access tokens
 
 Also see [Section 4.1](#validation-of-access-tokens) for requirements regarding validation of JWT access tokens.
 
-Example payload of an JWT access token:
+**Example JWT access token:**
+
+Header:
+
+```json
+{
+  "alg": "RS256",
+  "kid": "key-1",
+  "typ": "at+jwt"
+}
+```
+
+Payload:
+
 
 ```json
 {
@@ -1146,7 +1165,21 @@ Example payload of an JWT access token:
 }
 ```
 
-Extended example where the authorization server includes authentication information (the authentication context class and user authentication time), and a Swedish personal identity number for the subject (user):
+Compact JWT representation:
+
+```
+eyJhbGciOiJSUzI1NiIsImtpZCI6ImtleS0xIiwidHlwIjoiYXQrand0In0.eyJpc3MiOiJodHRwczovL2FzLm \
+V4YW1wbGUuY29tIiwic3ViIjoidXNlcjEyMyIsImF1ZCI6Imh0dHBzOi8vYXBpLmV4YW1wbGUuY29tIiwiZXhw \
+IjoxNzU5MTU4MDAwLCJpYXQiOjE3NTkxNTQ0MDAsInNjb3BlIjoicmVhZCB3cml0ZSIsImNsaWVudF9pZCI6Im \
+h0dHBzOi8vY2xpZW50LmV4YW1wbGUuY29tIiwianRpIjoiYTFiMmMzZDRlNWY2In0.qce3-7_VNXBongen4_ge \
+5xsFSDCuJBY0VQoxlr3WXopKxhjx7RFIaBJkO5QuK5fUAO_C6bpaIByvEp099JAMERhVqan8ej4DIwp4W2VxRG \
+R4aXHtqr7YS0AjGDKyMwlM7KAmXe4sppv4Rv3EOnoKGvmmfugNPk2Mv8gL8rBGrTjgo5DjOfVo8vdg4rGMm15F \
+6JDXb1tVzSyMZuY-sHMIwoUvfsQ-8JjhFm2w_97sT4ZX6P5E9rrFfVW0y29ysLljJGsczqWDbctecP5NQl2tuJ \
+_z5EsOGpKG1I9LEksRch0bxCKXbOUUOFREBuxX9NUjqBenUeP91J2TDMDEQ6EHxQ
+```
+
+
+Extended example of the payload where the authorization server includes authentication information (the authentication context class and user authentication time), and a Swedish personal identity number for the subject (user):
 
 ```json
 {
@@ -1186,7 +1219,7 @@ An access token obtained through a grant where no resource owner is involved MUS
 
 In cases where access tokens are obtained through grants involving a resource owner, such as the [Authorization Code Grant](#authorization-code-grant), the `sub` claim MUST be assigned an identifier that represents the resource owner (user).
 
-An authorization server MUST ensure that the protected resource(s) receiving the access token are authorized to receive the identity information contained in the `sub` claim. For example, if a protected resource is not authorized to receive a user's personal identity number, that identity MUST NOT be used as the `sub` claim.
+An authorization server MUST ensure that the protected resource(s) receiving the access token are authorized to receive the identity information contained in the `sub` claim. For example, if a protected resource is not authorized to receive a user's Swedish personal identity number, that identity MUST NOT be used as the `sub` claim.
 
 For user integrity reasons, it is RECOMMENDED that authorization servers choose a persistent identifier that does not reveal any personal identity information about the resource owner as the `sub` value, and extend the access token with authorized identity claims for the resource owner (if needed).
 
@@ -1557,6 +1590,10 @@ The feature of supporting OpenID Connect scope values in OAuth 2.0 authorization
 <a name="rfc7591"></a>
 **\[RFC7591\]**
 > [Richer, J., Ed., Jones, M., Bradley, J., Machulak, M., and P. Hunt, "OAuth 2.0 Dynamic Client Registration Protocol", RFC 7591, DOI 10.17487/RFC7591, July 2015](https://www.rfc-editor.org/info/rfc7591).
+
+<a name="rfc7516"></a>  
+**\[RFC7516\]**  
+> [Jones, M., "JSON Web Encryption (JWE)", RFC 7516, DOI 10.17487/RFC7516, May 2015](https://www.rfc-editor.org/info/rfc7516).
 
 <a name="rfc7517"></a>
 **\[RFC7517\]**
