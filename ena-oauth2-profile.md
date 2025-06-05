@@ -732,9 +732,9 @@ An authorization server issues access tokens for accessing one or more protected
 
 - Which clients are allowed to request access tokens for the resource. This can be a statically configured list or defined through policy rules, such as requiring certain trust marks.
 
-- Restrictions on what scopes (or rights) a client may request for a specific resource.
+- Restrictions on what scopes (or rights) a client may request and obtain for a specific resource. The evaluation of such rules may be based on static configuration or determined through a set of policy rules, such as requiring certain trust marks.  
 
-- Rules for claim release policies that govern what identity or attribute claims (if any) can be included in access tokens issued to specific clients for the resource (see [Section 6.1, Access Tokens](#access-tokens)).
+- Rules for claim release policies that govern what identity or attribute claims (if any) can be included in access tokens for the resource (see [Section 6.1, Access Tokens](#access-tokens)).
 
 - Requirements for specific grant types (see [Section 5, Grant Types](#grant-types)) to be used when obtaining access tokens for the resource, for example requiring the use of a grant involving the resource owner.
 
@@ -743,9 +743,9 @@ An authorization server issues access tokens for accessing one or more protected
 - Additional security constraints, such as requirements for [Client Authentication](#client-authentication),  
 [DPoP, Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession), and JWT encryption.
 
-&gt; Some of the above settings may be available from the protected resource metadata, if the resource supports "OAuth 2.0 Protected Resource Metadata" \[[RFC9728](#rfc9728)\].
+> Some of the above settings may be available from the protected resource metadata, if the resource supports "OAuth 2.0 Protected Resource Metadata" \[[RFC9728](#rfc9728)\].
 
-As a general rule of thumb, an authorization server's configuration for a protected resource SHOULD cover all aspects of the resource's access requirements, thereby leaving it to the protected resource to only check the scope and, if necessary, the identity of the resource owner before allowing access based on an access token (see [Section 4.4, Protected Resource Access Requirements Modelling](#protected-resource-access-requirements-modelling)).
+As a general rule of thumb, an authorization server's configuration for a protected resource SHOULD cover all aspects of the resource's access requirements. This allows the protected resource to only check the scope and, if necessary, assert that the identity of the resource owner corresponds to the call being made before allowing access based on an access token (see [Section 4.4, Protected Resource Access Requirements Modelling](#protected-resource-access-requirements-modelling)).
 
 <a name="protected-resource-profile"></a>
 ## 4. Protected Resource Profile
@@ -819,7 +819,7 @@ If the protected resource is functioning in a multi-domain, or federative, conte
 
 A protected resource MAY support publication of its metadata according to "OAuth 2.0 Protected Resource Metadata", \[[RFC9728](#rfc9728)\].
 
-Whenever feasible, the resource identifier SHOULD correspond to the network-addressable location of the protected resource &mdash; that is, the URL at which it exposes its service.
+Whenever feasible, the resource identifier SHOULD correspond to the network-addressable location of the protected resource, that is, the URL at which it exposes its service.
 
 Furthermore, if a resource server hosts multiple resources that do not share the same access rules, it is RECOMMENDED that these resources be treated as separate protected resources, and thus be represented with their own resource identifiers.
 
@@ -838,9 +838,11 @@ The endpoints on server1 do not share the same access rules and should therefore
 
 This section lists requirements and recommendations for a protected resource modelling its access requirements.
 
-After validating an access token according to [Section 4.1](#validation-of-access-tokens), a protected resource generally asserts that the scope(s) in the access token meet the requirements for the specific endpoint invoked, and possibly that the resource owner's identity is present in the access token (in the `sub` claim or a specific identity claim), before granting access to the invoked endpoint.
+After validating an access token according to [Section 4.1](#validation-of-access-tokens), a protected resource generally asserts that the scope(s) in the access token meet the requirements for the specific endpoint being invoked, and possibly that the resource owner's identity from the access token corresponds to the call being made<sup>\*</sup>, before granting access to the endpoint.
 
 A protected resource SHOULD NOT model its access control rules to include checks such as requirements for specific user authentication methods or requirements for specific clients. These types of assertions SHOULD be performed by the authorization server based on its configuration for the given resource (see [Section 3.4, Configuration of Protected Resources](#configuration-of-protected-resources)).
+
+> **\[\*\]**: Suppose that the endpoint being invoked is `/api/user123`, where the end of the path indicates the user whose data is being accessed. In such cases, the protected resource will likely want to assert that the `sub` claim, or possibly another identity claim, from the access token corresponds to `user123`.
 
 <a name="grant-types"></a>
 ## 5. Grant Types
