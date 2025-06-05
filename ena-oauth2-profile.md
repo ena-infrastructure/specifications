@@ -1399,7 +1399,7 @@ The `private_key_jwt` mechanism is defined in Sections 2 and 3 of \[[RFC7523](#r
 
 - The JWT MUST contain an `aud` (audience) claim with the issuer identifier (see [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier)) of the authorization server as its only value. An authorization server processing a JWT with multiple audience values MUST reject it.
 
-- Unless overridden by a local policy, the `jti` (JWT ID) MUST be included in the JWT. The authorization server MUST ensure that client authentication JWTs are not replayed by caching a collection of used `jti` values for the time the JWT would be considered valid.
+- Unless overridden by a local policy, the `jti` (JWT ID) MUST be included in the JWT and the authorization server MUST ensure that client authentication JWTs are not replayed by caching a collection of used `jti` values for the time the JWT would be considered valid.
 
 - The lifetime of the JWT, controlled by the `exp` claim, MUST be as short as possible (ranging from seconds to a few minutes). The authorization server MUST enforce a maximum allowed value, which may override the lifetime specified by the client.
 
@@ -1436,9 +1436,30 @@ See [Section 3.3.2.1, Token Requests](#token-requests) for an example where `pri
 <a name="mutual-tls-for-client-authentication"></a>
 #### 8.3.2. Mutual TLS for Client Authentication
 
-> RFC8705
+\[[RFC8705](#rfc8705)\] defines the `tls_client_auth` and `self_signed_tls_client_auth` client authentication methods. Entities compliant with this profile MAY support these methods according to \[[RFC8705](#rfc8705)\], along with the clarifications and additions stated below:
 
-`tls_client_auth` or `self_signed_tls_client_auth`.
+Authorization servers supporting the `tls_client_auth` method SHOULD limit the accepted PKI trust to a single root CA certificate, i.e., only accept client certificates from one PKI. The reason for this is that if the authorization server accepts a large number of certificate issuers, an attacker's chances of obtaining a perfectly legitimate certificate that has the same subject DN (or any other certificate subject name) for an already registered client increases. See Section 2.1.2 of \[[RFC8705](#rfc8705)\].
+
+Since an authorization server compliant with this profile MUST support the `private_key_jwt` client authentication method (see [Section 8.3.1](#signed-jwt-for-client-authentication) above), the use of mTLS endpoint aliases as specified in Section 5 of \[[RFC8705](#rfc8705)\] is RECOMMENDED. This facilitates a more robust endpoint configuration at the authorization server and avoids having to configure web servers with complex TLS rules where mTLS is optional, since `private_key_jwt` does not require mTLS.
+
+Example of authorization server metadata:
+
+```json
+{
+  "issuer": "https://as.example.com",
+  "authorization_endpoint": "https://as.example.com/authz",
+  "token_endpoint": "https://as.example.com/token",
+  ...
+  "token_endpoint_auth_methods_supported": ["private_key_jwt", "tls_client_auth"],
+  "mtls_endpoint_aliases": {
+    "token_endpoint": "https://as-mtls.example.com/token"
+  }
+}
+``` 
+
+This illustrates that the authorization server has two token endpoints: one used for `private_key_jwt` authentication, and one configured for mutual TLS, used for the `tls_client_auth` method.
+
+**Note:** Since an OAuth 2.0 client can only register one client authentication method (see [Section 2.2.2.2, Token Endpoint Authentication Method](#token-endpoint-authentication-method)), an authorization server MAY, instead of using mTLS endpoint aliases, supply different metadata documents to clients based on their registered authentication methods. How this could be implemented and realized is out of scope for this profile.
 
 <a name="oauth-20-security-mechanisms"></a>
 ### 8.4. OAuth 2.0 Security Mechanisms
