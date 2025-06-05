@@ -1389,15 +1389,15 @@ The `private_key_jwt` mechanism is defined in Sections 2 and 3 of \[[RFC7523](#r
 
 - The JWT MUST be digitally signed by the issuer (i.e., the client). The authorization server MUST reject JWTs with an invalid or missing signature. The client MUST use a signature algorithm supported by the authorization server. See [Section 3.1.1.7, Supported Authentication Signing Algorithms for Endpoints](#supported-authentication-signing-algorithms-for-endpoints).
 
-- It is RECOMMENDED that the client includes the `kid` parameter in the header to uniquely identify the signing key. If the client has several keys registered (see [Section 2.2.2.4](#json-web-key-set)), the `kid` parameter MUST be present.
+- It is RECOMMENDED that the client includes the `kid` parameter in the JWT header to uniquely identify the signing key. If the client has several keys registered (see [Section 2.2.2.4](#json-web-key-set)), the `kid` parameter MUST be present.
 
-- Client authentication JWTs SHOULD include an explicit type by setting the `typ` header parameter to `client-authentication+jwt`, or to another more specific type value defined by a policy or profile. If a client authentication JWT does not include such an explicit type value, the authorization server SHOULD reject it. This requirement helps avoid replay of other JWTs signed by the client as JWTs for client authentication.
+- Unless overridden by a policy exception for legacy deployments, client authentication JWTs MUST include an explicit type by setting the `typ` JWT header parameter to `client-authentication+jwt`, or to another more specific type value defined by a policy or profile. If a client authentication JWT does not include such an explicit type value, the authorization server MUST reject it. This requirement helps prevent the replay of other JWTs signed by the client as client authentication JWTs.
 
 - The `iss` claim of the JWT MUST be assigned the client identifier, as specified in [Section 2.2.1, Client Identifiers](#client-identifiers).
 
 - The `sub` claim of the JWT MUST be equal to the `iss` claim, i.e., the `client_id` of the client.
 
-- The JWT MUST contain an `aud` (audience) claim with the issuer identifier (see [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier)) of the authorization server as its only value. An authorization server processing a JWT with multiple audience values MUST reject it.
+- The JWT MUST contain an `aud` (audience) claim with the authorization server identifier (see [Section 3.1.1.1](#issuer-the-authorization-server-entity-identifier)) as its only value. An authorization server processing a JWT that includes multiple audience values MUST reject it.
 
 - Unless overridden by a local policy, the `jti` (JWT ID) MUST be included in the JWT and the authorization server MUST ensure that client authentication JWTs are not replayed by caching a collection of used `jti` values for the time the JWT would be considered valid.
 
