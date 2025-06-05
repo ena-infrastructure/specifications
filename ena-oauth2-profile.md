@@ -33,8 +33,6 @@ Over the years, numerous extensions and features have been introduced, making â€
     2.2.2. [Client Registration Metadata](#client-registration-metadata)
 
     2.3. [Connections to Protected Resources](#connections-to-protected-resources)
-    
-    2.4. [Connections to Authorization Servers](#connections-to-authorization-servers)
 
 3. [**Authorization Server Profile**](#authorization-server-profile)
 
@@ -372,13 +370,6 @@ Clients MAY send the access token in an HTTP request by including it as a form-e
 Clients MUST NOT include the access token as a URI query parameter (Section 2.3 of \[[RFC6750](#rfc6750)\]). The reason is that the access token would be visible in the URL and could be stolen by attackers, for example, from the web browser history. Consequently, a resource server compliant with this profile MUST NOT accept an access token transmitted in a query parameter.
 
 Clients MUST support and be able to process the `WWW-Authenticate` response header field as specified by Section 3 of [[RFC6750](#rfc6750)\].
-
-<a name="connections-to-authorization-servers"></a>
-### 2.4. Connections to Authorization Servers
-
-> TODO: Write about AS metadata discovery
-
-> TODO: Refer to grants below for authz and token
 
 <a name="authorization-server-profile"></a>
 ## 3. Authorization Server Profile
@@ -737,7 +728,30 @@ Pragma: no-cache
 <a name="configuration-of-protected-resources"></a>
 ### 3.4. Configuration of Protected Resources
 
-> TODO: Write about how an authorization server should configure protection of resources. 
+An authorization server issues access tokens for accessing one or more protected resources. Each protected resource, along with its access requirements, must be configured at the authorization server. This configuration may include:
+
+- The registered identity of the protected resource (see [Section 4.3, Protected Resource Identity and Registration](#protected-resource-identity-and-registration)). This identifier will be used as the `aud` claim in the resulting access token (see [Section 6.1.1, The Audience Claim](#the-audience-claim)).
+
+- The cryptographic requirements and capabilities of the protected resource, such as which signature algorithms are supported for signed JWT access tokens.
+
+- Which clients are allowed to request access tokens for the resource. This can be a statically configured list or defined through policy rules, such as requiring certain trust marks.
+
+- Restrictions on what scopes (or rights) a client may request and obtain for a specific resource. The evaluation of such rules may be based on static configuration or determined through a set of policy rules, such as requiring certain trust marks.  
+
+- Rules for claim release policies that govern what identity or attribute claims (if any) can be included in access tokens for the resource (see [Section 6.1, Access Tokens](#access-tokens)).
+
+- Requirements for specific grant types (see [Section 5, Grant Types](#grant-types)) to be used when obtaining access tokens for the resource, for example requiring the use of a grant involving the resource owner.
+
+- Specific requirements for how the resource owner (user) must authenticate, for example requiring a specific level of assurance.
+
+- Additional security constraints, such as requirements for [Client Authentication](#client-authentication),  
+[DPoP, Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession), and JWT encryption.
+
+> Some of the above settings may be available from the protected resource metadata, if the resource supports "OAuth 2.0 Protected Resource Metadata" \[[RFC9728](#rfc9728)\].
+
+As a general rule of thumb, an authorization server's configuration for a protected resource SHOULD cover all aspects of the resource's access requirements, except for fine-grained validation such as asserting that the identity of the resource owner (user) who has delegated access rights to the client corresponds to the call being made.
+
+This allows the protected resource to only check the scope and, if necessary, assert the expected resource owner identity before allowing access based on an access token (see [Section 4.4, Protected Resource Access Requirements Modelling](#protected-resource-access-requirements-modelling)).
 
 <a name="protected-resource-profile"></a>
 ## 4. Protected Resource Profile
@@ -811,7 +825,7 @@ If the protected resource is functioning in a multi-domain, or federative, conte
 
 A protected resource MAY support publication of its metadata according to "OAuth 2.0 Protected Resource Metadata", \[[RFC9728](#rfc9728)\].
 
-Whenever feasible, the resource identifier SHOULD correspond to the network-addressable location of the protected resource &mdash; that is, the URL at which it exposes its service.
+Whenever feasible, the resource identifier SHOULD correspond to the network-addressable location of the protected resource, that is, the URL at which it exposes its service.
 
 Furthermore, if a resource server hosts multiple resources that do not share the same access rules, it is RECOMMENDED that these resources be treated as separate protected resources, and thus be represented with their own resource identifiers.
 
@@ -828,11 +842,13 @@ The endpoints on server1 do not share the same access rules and should therefore
 <a name="protected-resource-access-requirements-modelling"></a>
 ### 4.4. Protected Resource Access Requirements Modelling
 
-- TODO: Rules and recommendations concerning required scopes (and additional information).
+This section lists requirements and recommendations for a protected resource modelling its access requirements.
 
-> TODO: Describe both the policy/requirements at the authorization server as well as checks made at the protected resource.
+After validating an access token according to [Section 4.1](#validation-of-access-tokens), a protected resource generally asserts that the scope(s) in the access token meet the requirements for the specific endpoint being invoked, and possibly that the identity of the resource owner (the `sub` claim or possibly another identity claim) who has delegated access to the client corresponds to the call being made<sup>\*</sup>, before granting access to the endpoint.
 
-> TODO: Recommendations so that most of the access check can be made by the AS. An PR/RS should only check that subject corresponds to data that is asked for (in case a user's data is requested).
+A protected resource SHOULD NOT model its access control rules to include checks such as requirements for specific user authentication methods or requirements for specific clients. These types of assertions SHOULD be performed by the authorization server based on its configuration for the given resource (see [Section 3.4, Configuration of Protected Resources](#configuration-of-protected-resources)).
+
+> **\[\*\]**: Suppose that the endpoint being invoked is `/api/user123`, where the end of the path indicates the user whose data is being accessed. In such cases, the protected resource will likely want to assert that the `sub` claim, or possibly another identity claim, from the access token corresponds to `user123`, that is, to verify that the resource owner who has delegated access rights to the client matches the expected user based on the call.
 
 <a name="grant-types"></a>
 ## 5. Grant Types
