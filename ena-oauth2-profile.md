@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-06-05
+### Version: 1.0 - draft 01 - 2025-06-09
 
 ## Abstract
 
@@ -508,6 +508,10 @@ The `ui_locales_supported` parameter SHOULD be present and include Swedish (`sv`
 ##### 3.1.1.10. Extensions
 
 This section contains metadata parameters for optional OAuth 2.0 extensions that MAY be supported by an authorization server.
+
+**Metadata parameter:** `protected_resources`
+
+The `protected_resources` metadata parameter, as defined in Section 4 of \[[RFC9728](#rfc9728)\], contains a JSON array of resource identifiers for OAuth protected resources that can be used with this authorization server. Its use is RECOMMENDED for authorization servers compliant with this profile.
 
 **Metadata parameter:** `authorization_response_iss_parameter_supported`
 
