@@ -129,6 +129,18 @@ Over the years, numerous extensions and features have been introduced, making �
     8.5.2. [Token Theft and Leakage](#token-theft-and-leakage)
     
     8.5.3. [Authorization Server Mix-Up Attacks](#authorization-server-mix-up-attacks)
+    
+    8.5.4. [Insufficient Validation of Redirect URIs](#insufficient-validation-of-redirect-uris)
+
+    8.5.5. [Credential Leakage](#credential-leakage)
+
+    8.5.6. [CSRF &ndash; Cross-Site Request Forgery](#csrf-cross-site-request-forgery)
+
+    8.5.7. [Open Redirects](#open-redirects)
+
+    8.5.8. [Use of the Temporary Redirect (307) HTTP Status Code](#use-of-the-temporary-redirect-307-http-status-code)
+
+    8.5.9. [Bad Configuration of Reverse Proxies that Terminates TLS](#bad-configuration-of-reverse-proxies-that-terminates-tls)
 
 9. [**Requirements for Interoperability**](#requirements-for-interoperability)
 
@@ -234,6 +246,8 @@ Every client compliant with the profile MUST be identified by a globally unique 
 \[[RFC6749](#rfc6749)\] and \[[RFC7591](#rfc7591)\] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in \[[OpenID.Federation](#openid-federation)\] also apply to this profile.
 
 A client registered with multiple authorization servers MUST use the same client identifier (`client_id`) for all registrations. This implies that an authorization server compliant with this profile MUST support clients with client identifiers issued by external parties.
+
+A client identifier MUST NOT be assigned if its value may be mistaken for the identity of a resource owner (see Section 4.15 of \[[RFC9700](#rfc9700)\]). Since this profile dictates that client identifiers must be URLs, the risk of mistaking a client identifier for a resource owner identity is low, but authorization servers MUST still ensure that the namespaces used for subject names (`sub` claim and potentially other user identity claims) and client identifiers do not interfere.
 
 <a name="client-registration-metadata"></a>
 #### 2.2.2. Client Registration Metadata
@@ -1573,6 +1587,8 @@ Access tokens can be stolen in several ways. Some of these attacks are described
 To mitigate these types of attacks, this profile specifies the following requirements:
 
 - All access tokens MUST be audience-restricted as specified in [Section 6.1, Access Tokens](#access-tokens), and protected resources MUST validate this restriction in accordance with [Section 4.1, Validation of Access Tokens](#validation-of-access-tokens).
+
+- Protected resources MUST treat received access tokens as sensitive secrets, and MUST NOT store them in plaintext.
     
 - In deployments where any of the above threats are relevant, it is RECOMMENDED that access tokens be sender-constrained using DPoP \[[RFC9449](#rfc9449)\], or alternatively, Mutual TLS \[[RFC8705](#rfc8705)\]. For details, see [Section 8.4.2, DPoP - Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession) and [Section 8.4.3, Binding Access Tokens to Client Certificates using Mutual TLS](#binding-access-tokens-to-client-certificates-using-mutual-tls).
 
@@ -1581,7 +1597,49 @@ To mitigate these types of attacks, this profile specifies the following require
 <a name="authorization-server-mix-up-attacks"></a>
 #### 8.5.3. Authorization Server Mix-Up Attacks
 
-7.13
+If an OAuth 2.0 client is configured to use more than one authorization server, the client may be at risk if any of the authorization servers it interacts with has been compromised by an attacker.
+
+Section 4.4.1 of \[[RFC9700](#rfc9700)\] describes this attack in detail, but in short, the attacker exploits a situation where a client interacts with multiple authorization servers and does not properly verify which authorization server issued a given authorization response. The attack may proceed as follows:
+
+- The attacker tricks a client into initiating an authorization request to a malicious or unintended authorization server.
+
+- The malicious authorization server then forwards the client to a legitimate authorization server, which performs user authentication and issues an authorization code.
+
+- The malicious authorization server intercepts this legitimate response and passes it back to the client in a context where the client mistakenly believes the response came from the malicious authorization server.
+
+- As a result, the client uses the legitimate authorization server-issued code in requests to the malicious authorization server, potentially exposing sensitive tokens or user information to the attacker.
+
+To defend against these types of attacks, a client compliant with this profile MUST store, for each authorization request, the identifier of the authorization server to which the client sent the request, and bind this information to the user agent. Using the authorization server metadata, the client can then know which authorization endpoint and token endpoint are to be used in the flow.
+
+Also, an authorization server compliant with this profile SHOULD include the `iss` parameter, as defined by \[[RFC9207](#rfc9207)\], in authorization responses, and the client SHOULD process it according to \[[RFC9207](#rfc9207)\], see [Section 5.1.2, Authorization Responses](#authorization-responses).
+
+<a name="insufficient-validation-of-redirect-uris"></a>
+#### 8.5.4. Insufficient Validation of Redirect URIs
+
+4.1
+
+<a name="credential-leakage"></a>
+#### 8.5.5. Credential Leakage
+
+4.3
+
+<a name="csrf-cross-site-request-forgery"></a>
+#### 8.5.6. CSRF &ndash; Cross-Site Request Forgery
+
+<a name="open-redirects"></a>
+#### 8.5.7. Open Redirects
+
+4.11
+
+<a name="use-of-the-temporary-redirect-307-http-status-code"></a>
+#### 8.5.8. Use of the Temporary Redirect (307) HTTP Status Code
+
+4.12
+
+<a name="bad-configuration-of-reverse-proxies-that-terminates-tls"></a>
+#### 8.5.9. Bad Configuration of Reverse Proxies that Terminates TLS
+
+Often deployments for HTTP applications involve a reverse proxy that terminates TLS connections, and forwards incoming requests to the application server. In these cases, client certificates XXX
 
 <a name="requirements-for-interoperability"></a>
 ## 9. Requirements for Interoperability 
