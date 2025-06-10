@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-06-09
+### Version: 1.0 - draft 01 - 2025-06-10
 
 ## Abstract
 
@@ -302,8 +302,19 @@ To facilitate a smooth key rollover, each JWK of the referenced document SHOULD 
 
 The JWKs provided in the key set MUST adhere to the requirements put in [Section 8.2, Cryptographic Algorithms](#cryptographic-algorithms), below.
 
+<a name="client-scopes"></a>
+##### 2.2.2.5. Scopes
+
+**Metadata parameter:** `scope`
+
+The `scope` parameter is a space-separated list of scope values that the client can use when requesting access tokens.
+
+If the client has registered its metadata at the authorization server, this is the list of scopes that the client is authorized to request, as determined by the authorization server.
+
+If, however, a client provides its own metadata, for example, within a federative context, the list of scopes given by the client itself does not necessarily correspond to the scopes that a particular authorization server will allow the client to request.
+
 <a name="human-readable-client-metadata"></a>
-##### 2.2.2.5. Human-readable Client Metadata
+##### 2.2.2.6. Human-readable Client Metadata
 
 Client metadata values intended for human consumption, either directly or via reference (URIs), SHOULD be provided in both English and Swedish using language tags according to BCP 47, \[[RFC5646](#rfc5646)\].
 
@@ -326,7 +337,7 @@ Examples:
 For further requirements see Section 2.2 of \[[RFC7591](#rfc7591)\].
 
 <a name="client-md-extensions"></a>
-##### 2.2.2.6. Extensions
+##### 2.2.2.7. Extensions
 
 This section contains metadata parameters for optional OAuth 2.0 extensions that MAY be supported by a client.
 
