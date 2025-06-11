@@ -1612,7 +1612,7 @@ Section 4.4.1 of \[[RFC9700](#rfc9700)\] describes this attack in detail, but in
 
 - As a result, the client uses the legitimate authorization server-issued code in requests to the malicious authorization server, potentially exposing sensitive tokens or user information to the attacker.
 
-To defend against these types of attacks, a client compliant with this profile MUST store, for each authorization request, the identifier of the authorization server to which the client sent the request, and bind this information to the user agent. Using the authorization server metadata, the client can then know which authorization endpoint and token endpoint are to be used in the flow.
+To defend against these types of attacks, a client compliant with this profile MUST, for each authorization request, store the identifier of the authorization server to which the request was sent, and bind this information to the user agent. Using the authorization server metadata, the client can then determine which authorization endpoint and token endpoint are to be used in the flow.
 
 Also, an authorization server compliant with this profile SHOULD include the `iss` parameter, as defined by \[[RFC9207](#rfc9207)\], in authorization responses, and the client SHOULD process it according to \[[RFC9207](#rfc9207)\], see [Section 5.1.2, Authorization Responses](#authorization-responses).
 
