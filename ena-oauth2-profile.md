@@ -309,10 +309,6 @@ The JWKs provided in the key set MUST adhere to the requirements put in [Section
 
 The `scope` parameter is a space-separated list of scope values that the client can use when requesting access tokens.
 
-If the client has registered its metadata at the authorization server, this is the list of scopes that the client is authorized to request, as determined by the authorization server.
-
-If, however, a client provides its own metadata, for example, within a federative context, the list of scopes given by the client itself does not necessarily correspond to the scopes that a particular authorization server will allow the client to request.
-
 <a name="human-readable-client-metadata"></a>
 ##### 2.2.2.6. Human-readable Client Metadata
 
