@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-06-10
+### Version: 1.0 - draft 01 - 2025-06-16
 
 ## Abstract
 
@@ -21,6 +21,8 @@ Over the years, numerous extensions and features have been introduced, making �
     1.3. [Conformance](#conformance)
 
     1.4. [Limitations and Exclusions](#limitations-and-exclusions)
+    
+    1.5. [The User and Resource Owner Distinction](#the-user-and-resource-owner-distinction)
 
 2. [**Client Profile**](#client_profile)
 
@@ -167,17 +169,19 @@ These keywords are capitalized when used to unambiguously specify requirements o
 
 The OAuth 2.0 Authorization Framework, \[[RFC6749](#rfc6749)\], defines the following roles:
 
-- Resource Owner (RO) – An entity that grants access to a protected resource. When the resource owner is a physical person, the terms End User or simply User may be used. In this document, we sometimes use the abbreviation "RO".
+- Resource Owner &ndash; An entity that grants access to a protected resource. When the resource owner is a physical person, the terms End User or simply User may be used. 
 
-- Resource Server (RS) - A server hosting protected resources, capable of accepting and responding to protected resource requests using access tokens. In this document, we sometimes use the abbreviation "RS".
+- User &ndash; In most cases, the User is the same entity as the Resource Owner, but there are OAuth deployments that involve a (physical) user who is not the actual resource owner, see [Section 1.5, The User and Resource Owner Distinction](#the-user-and-resource-owner-distinction) below.
 
-- Client - An application that makes requests to protected resources on behalf of a resource owner (user) with proper authorization. In some documentation concerning OAuth 2.0 and OpenID Connect, a client is sometimes referred to as a Relying Party.
+- Resource Server &ndash; A server hosting protected resources, capable of accepting and responding to protected resource requests using access tokens.
 
-- Authorization Server (AS) - A server responsible for issuing access tokens to a client after the resource owner (user) has been successfully authenticated and has granted the necessary authorization rights. In this document, we sometimes use the abbreviation "AS".
+- Client &ndash; An application that makes requests to protected resources on behalf of a resource owner (user) with proper authorization. In some documentation concerning OAuth 2.0 and OpenID Connect, a client is sometimes referred to as a Relying Party.
+
+- Authorization Server (AS) &ndash; A server responsible for issuing access tokens to a client after the resource owner (user) has been successfully authenticated and has granted the necessary authorization rights. In this document, we sometimes use the abbreviation "AS".
 
 The OAuth 2.0 Authorization Framework: Bearer Token Usage, \[[RFC6750](#rfc6750)\], defines:
 
-- Protected Resource (PR) - A resource (for example, an HTTP service), which is protected by OAuth 2.0 and requires a valid access token for access. In this document, we sometimes use the abbreviation "PR".
+- Protected Resource &ndash; A resource (for example, an HTTP service), which is protected by OAuth 2.0 and requires a valid access token for access.
 
 Clarification on the distinction between a Resource Server and a Protected Resource:
 
@@ -205,6 +209,19 @@ When an entity compliant with this profile interacts with other entities that al
 
 * OAuth 2.0 Token Revocation, as specified in [RFC7009](https://datatracker.ietf.org/doc/html/rfc7009), is not covered in this document. However, an entity using this feature may still comply with this profile, provided that none of its requirements are violated.
 
+<a name="the-user-and-resource-owner-distinction"></a>
+### 1.5. The User and Resource Owner Distinction
+
+OAuth 2.0 is a delegation protocol where a resource owner (the user) delegates their rights to an application (the client) to make a call to a protected resource on the user's behalf. However, this profile also supports other uses of OAuth 2.0 where an end-user is involved, but is not strictly the resource owner. Such cases may include scenarios such as:
+
+- **Enterprise scenarios**, where an employee (the user) accesses a company system that retrieves organizational data owned by the enterprise, not the individual. The user's involvement in the OAuth 2.0 flow is to verify the employee’s identity and ensure they are authorized to act on the organization’s behalf.
+
+- **Parental access**, where a parent (user) accesses information about their child. In this case, the child is the actual resource owner, but OAuth 2.0 may still be used to confirm that the parent is authorized to access the child’s data, based on some external policy or delegation.
+
+In this profile, the term *User* refers to the authenticated end-user who interacts with the client and the authorization server. While OAuth 2.0 traditionally uses the term *Resource Owner* to denote the party granting access, in deployments realized using this profile, the user does not necessarily own the resources being accessed. Rather, the user acts as an authorized subject whose identity or role is evaluated as part of the access decision. Therefore, this profile favours the use of the term *User* over *Resource Owner*.
+
+In cases where the user is not the actual resource owner, the consent dialogues at the authorization server are adapted to the specific use case.
+
 <a name="client_profile"></a>
 ## 2. Client Profile
 
@@ -217,9 +234,9 @@ Note: This does not mean that mobile apps and JavaScript web applications are di
 
 Since this profile only handles confidential clients, we also distinguish between different subtypes of confidential clients. There are two main subtypes:
 
-* **Client with user delegation** – A confidential client that acts on behalf of a resource owner (user) and requires delegation of the user’s authority to access a protected resource.
+* **Client with user delegation** – A confidential client that acts on behalf of a user and requires delegation of the user’s authority to access a protected resource.
 
-* **Machine-to-machine client without user delegation** – A confidential client that makes calls to a protected resource without the involvement of a resource owner (user).
+* **Machine-to-machine client without user delegation** – A confidential client that makes calls to a protected resource without the involvement of a user.
 
 These client subtypes correspond to the implementations of the [Authorization Code Flow](#authorization-code-grant) and [Client Credentials Flow](#client-credentials-grant), respectively.
 
@@ -239,7 +256,7 @@ Every client compliant with the profile MUST be identified by a globally unique 
 
 A client registered with multiple authorization servers MUST use the same client identifier (`client_id`) for all registrations. This implies that an authorization server compliant with this profile MUST support clients with client identifiers issued by external parties.
 
-A client identifier MUST NOT be assigned if its value may be mistaken for the identity of a resource owner (see Section 4.15 of \[[RFC9700](#rfc9700)\]). Since this profile dictates that client identifiers must be URLs, the risk of mistaking a client identifier for a resource owner identity is low, but authorization servers MUST still ensure that the namespaces used for subject names (`sub` claim and potentially other user identity claims) and client identifiers do not interfere.
+A client identifier MUST NOT be assigned if its value may be mistaken for the identity of an end-user (see Section 4.15 of \[[RFC9700](#rfc9700)\]). Since this profile dictates that client identifiers must be URLs, the risk of mistaking a client identifier for a end-user identity is low, but authorization servers MUST still ensure that the namespaces used for subject names (`sub` claim and potentially other user identity claims) and client identifiers do not interfere.
 
 <a name="client-registration-metadata"></a>
 #### 2.2.2. Client Registration Metadata
@@ -755,16 +772,15 @@ An authorization server issues access tokens for accessing one or more protected
 
 - Requirements for specific grant types (see [Section 5, Grant Types](#grant-types)) to be used when obtaining access tokens for the resource, for example requiring the use of a grant involving the resource owner.
 
-- Specific requirements for how the resource owner (user) must authenticate, for example requiring a specific level of assurance.
+- Specific requirements for how the end-user must authenticate, for example requiring a specific level of assurance.
 
-- Additional security constraints, such as requirements for [Client Authentication](#client-authentication),  
-[DPoP, Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession), and JWT encryption.
+- Additional security constraints, such as requirements for [Client Authentication](#client-authentication), [DPoP, Demonstrating Proof of Possession](#dpop-demonstrating-proof-of-possession), and JWT encryption.
 
 > Some of the above settings may be available from the protected resource metadata, if the resource supports "OAuth 2.0 Protected Resource Metadata" \[[RFC9728](#rfc9728)\].
 
-As a general rule of thumb, an authorization server's configuration for a protected resource SHOULD cover all aspects of the resource's access requirements, except for fine-grained validation such as asserting that the identity of the resource owner (user) who has delegated access rights to the client corresponds to the call being made.
+As a general rule of thumb, an authorization server's configuration for a protected resource SHOULD cover all aspects of the resource's access requirements, except for fine-grained validation such as asserting that the identity of the user who has delegated access rights to the client corresponds to the call being made.
 
-This allows the protected resource to only check the scope and, if necessary, assert the expected resource owner identity before allowing access based on an access token (see [Section 4.4, Protected Resource Access Requirements Modelling](#protected-resource-access-requirements-modelling)).
+This allows the protected resource to only check the scope and, if necessary, assert the expected resource owner/user identity before allowing access based on an access token (see [Section 4.4, Protected Resource Access Requirements Modelling](#protected-resource-access-requirements-modelling)).
 
 <a name="protected-resource-profile"></a>
 ## 4. Protected Resource Profile
@@ -776,8 +792,6 @@ A resource server compliant with this profile MUST accept access tokens passed i
 Resource servers MUST NOT accept access tokens passed in a URI query parameter (Section 2.3 of \[[RFC6750](#rfc6750)\]).
 
 Depending on how a resource server services a request, it MAY also act as an OAuth 2.0 client when it needs to invoke underlying protected resources as part of its processing. This pattern may involve features such as "token exchange", which is not covered in this profile. 
-
-> *TODO: Include pointer to informational reference.*
 
 <a name="validation-of-access-tokens"></a>
 ### 4.1. Validation of Access Tokens
@@ -1176,7 +1190,7 @@ An authorization server compliant with this profile MUST issue JWT access tokens
 
 - The authorization server MAY include authentication information claims, as described in Section 2.2.1 of \[[RFC9068](#rfc9068)\], if the protected resource requires this information to grant access based on the access token.
 
-- The authorization server MAY include identity claims about the resource owner (user) in the JWT. However, an authorization server MUST NOT include identity information in an access token if any of the intended audiences is not authorized to receive that information. This authorization requirement also applies to the client, since it has the ability to access the access token. How this authorization is maintained is out of scope for this profile.<br /><br />Also see [Section 9.2, Using OpenID Connect Identity Scopes](#using-openid-connect-identity-scopes).
+- The authorization server MAY include identity claims about the resource owner/user in the JWT. However, an authorization server MUST NOT include identity information in an access token if any of the intended audiences is not authorized to receive that information. This authorization requirement also applies to the client, since it has the ability to access the access token. How this authorization is maintained is out of scope for this profile.<br /><br />Also see [Section 9.2, Using OpenID Connect Identity Scopes](#using-openid-connect-identity-scopes).
 
 - The authorization server MUST limit the inclusion of user identity claims in access tokens to only those claims required by the protected resource to make its access decision.
 
@@ -1262,15 +1276,15 @@ If several audience values are given in the `aud` claim, all protected resources
 <a name="the-subject-claim"></a>
 #### 6.1.2. The Subject Claim
 
-In cases where an access token is obtained through a grant where no resource owner is involved, such as the [Client Credentials Grant](#client-credentials-grant), the `sub` claim SHOULD be assigned the same value as the `client_id`. This requirement MAY be overridden if the protected resource has a different way to identify a client application than its registered identity.
+In cases where an access token is obtained through a grant where no user is involved, such as the [Client Credentials Grant](#client-credentials-grant), the `sub` claim SHOULD be assigned the same value as the `client_id`. This requirement MAY be overridden if the protected resource has a different way to identify a client application than its registered identity.
 
-An access token obtained through a grant where no resource owner is involved MUST NOT assign the `sub` claim to the identity of a physical individual. However, if a resource owner (user) has authorized an application in advance, the access token MAY include identity claims for that user. How this is accomplished is out of scope for this profile. 
+An access token obtained through a grant where no user is involved MUST NOT assign the `sub` claim to the identity of a physical individual. However, if a resource owner (user) has authorized an application in advance, the access token MAY include identity claims for that user. How this is accomplished is out of scope for this profile. 
 
-In cases where access tokens are obtained through grants involving a resource owner, such as the [Authorization Code Grant](#authorization-code-grant), the `sub` claim MUST be assigned an identifier that represents the resource owner (user).
+In cases where access tokens are obtained through grants involving a resource owner/user, such as the [Authorization Code Grant](#authorization-code-grant), the `sub` claim MUST be assigned an identifier that represents the resource owner/user.
 
 An authorization server MUST ensure that the protected resource(s) receiving the access token are authorized to receive the identity information contained in the `sub` claim. For example, if a protected resource is not authorized to receive a user's Swedish personal identity number, that identity MUST NOT be used as the `sub` claim.
 
-For user integrity reasons, it is RECOMMENDED that authorization servers choose a persistent identifier that does not reveal any personal identity information about the resource owner as the `sub` value, and extend the access token with authorized identity claims for the resource owner (if needed).
+For user integrity reasons, it is RECOMMENDED that authorization servers choose a persistent identifier that does not reveal any personal identity information about the user as the `sub` value, and extend the access token with authorized identity claims for the user (if needed).
 
 <a name="refresh-tokens"></a>
 ### 6.2. Refresh Tokens
@@ -1690,7 +1704,7 @@ However, if the protected resource implements “OAuth 2.0 Protected Resource Me
 
 Scopes are used somewhat differently in OAuth 2.0 and OpenID Connect. In the OAuth world, a scope represents a "right", whereas in OpenID Connect, many scopes determine which information about an authenticated user is released.
 
-In OAuth 2.0 deployments, access tokens obtained from an authorization server and passed to a protected resource may contain a set of identity claims about the resource owner. The inclusion of such claims may be required by the protected resource in order to perform its access decision. Which identity claims to include in an access token for a particular resource is generally determined by configuration at the authorization server.
+In OAuth 2.0 deployments, access tokens obtained from an authorization server and passed to a protected resource may contain a set of identity claims about the resource owner/user. The inclusion of such claims may be required by the protected resource in order to perform its access decision. Which identity claims to include in an access token for a particular resource is generally determined by configuration at the authorization server.
 
 By using OpenID Connect identity scopes, a client can dynamically request that a specific set of identity claims be included in the access token. For example, assume that a client wishes to obtain an access token to call a protected resource that requires a Swedish personal identity number to be included in the token. The client could then include the scope `https://id.oidc.se/scope/naturalPersonNumber`, as defined by \[[OIDC.Sweden.Claims](#oidc-claims)\], in the authorization request.
 
