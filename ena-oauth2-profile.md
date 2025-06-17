@@ -214,7 +214,7 @@ When an entity compliant with this profile interacts with other entities that al
 
 OAuth 2.0 is a delegation protocol where a resource owner (the user) delegates their rights to an application (the client) to make a call to a protected resource on the user's behalf. However, this profile also supports other uses of OAuth 2.0 where an end-user is involved, but is not strictly the resource owner. Such cases may include scenarios such as:
 
-- **Enterprise scenarios**, where an employee (the user) accesses a company system that retrieves organizational data owned by the enterprise, not the individual. The user's involvement in the OAuth 2.0 flow is to verify the employee’s identity and ensure they are authorized to act on the organization’s behalf.
+- **Enterprise scenarios**, where an employee (the user) accesses a system that retrieves a resource owned by someone other than the user (i.e. the user's organization, the resource provider, or another legal entity), but the user's access is authorized according to the resource's access policy. In such cases, the user participates in the OAuth 2.0 flow to verify their identity and confirm that they are authorized.
 
 - **Parental access**, where a parent (user) accesses information about their child. In this case, the child is the actual resource owner, but OAuth 2.0 may still be used to confirm that the parent is authorized to access the child’s data, based on some external policy or delegation.
 
@@ -234,7 +234,7 @@ Note: This does not mean that mobile apps and JavaScript web applications are di
 
 Since this profile only handles confidential clients, we also distinguish between different subtypes of confidential clients. There are two main subtypes:
 
-* **Client with user delegation** – A confidential client that acts on behalf of a user and requires delegation of the user’s authority to access a protected resource.
+* **Client with user delegation** – A confidential client that acts on behalf of a user and requires delegation of the user’s right to access a protected resource.
 
 * **Machine-to-machine client without user delegation** – A confidential client that makes calls to a protected resource without the involvement of a user.
 
