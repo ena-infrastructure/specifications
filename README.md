@@ -8,11 +8,11 @@ This repository contains OAuth 2.0 profiles and specifications developed by the 
 
 - [Ena OAuth 2.0 Interoperability Profile](ena-oauth2-profile.md) &mdash; This document defines a profile for OAuth 2.0 to enhance interoperability, strengthen security, and enable more efficient and cost-effective deployments. While the profile is primarily intended for Swedish public and private services and organizations, it is not limited to them.
 
+- [Ena OAuth 2.0 User Authentication Best Practices](ena-oauth2-authn-bp.md) &mdash; In many cases, a user is already logged in to a web service (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.
+
 ### Coming papers
 
 Below is a listing of profiles and documents that will be produced by the Ena Infrastructure working group.
-
-- **Ena OAuth 2.0 User Authentication Best Practices** &mdash; In many cases, a user is already logged in to a web service (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.
 
 - **Ena OAuth 2.0 Cookbook** &mdash; An informational document that illustrates common OAuth 2.0 use cases with recipes for how to send requests, process responses, and handle access tokens.
 
