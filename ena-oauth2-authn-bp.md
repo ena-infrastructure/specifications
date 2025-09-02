@@ -2,13 +2,13 @@
 
 # Ena OAuth 2.0 User Authentication Best Practices
 
-### Version: 1.0 - draft 01 - 2025-09-01
+### Version: 1.0 - draft 01 - 2025-09-02
 
 ## Abstract
 
 The OAuth 2.0 framework defines mechanisms that allow users (resource owners) to delegate access rights to a protected resource for an application they are using. Additionally, OAuth 2.0 protocols are often used without user involvement in service-to-service scenarios.
 
-In many cases, a user is already logged in to a web service (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.
+In many cases, a user is already logged in to a web application (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.
 
 ## Table of Contents
 
@@ -39,19 +39,19 @@ When a user is directed to the authorization server from a client (for example, 
 
 That the authorization server needs to know which user it should delegate rights for is obvious, but how this authentication is actually performed is out of scope for the OAuth 2.0 specifications. 
 
-In many real-life scenarios, the user has already authenticated and logged in to the web application before the application acts as an OAuth client and redirects the user to the authorization server. In security domains where authentications are session-bound and “remember me” functionality is not used, this may mean that the user has to authenticate twice: once when logging in to the application and again when being redirected to the authorization server.
+In many real-life scenarios, the user has already authenticated and logged in to the web application before the application acts as an OAuth client and redirects the user to the authorization server. In security domains where authentications are session-bound and “remember me” functionality is not used, this may mean that the user has to authenticate twice: once when logging in to the web application and again when being redirected to the authorization server.
 
-If the application and the authorization server use the same type of user authentication, for example, they both use the same identity provider and they both require the same user identity attributes and authentication context for authenticating a user, there are methods to apply where the user only (visibly) authenticates once. 
+If the web application and the authorization server use the same type of user authentication, for example, they both use the same identity provider and they both require the same user identity attributes and authentication context for authenticating a user, there are methods to apply where the user only (visibly) authenticates once. 
 
-This document provides best practices for user authentication in OAuth 2.0 when end users log in to the OAuth 2.0 client application before the OAuth 2.0 flow starts.
+This document provides best practices for user authentication in OAuth 2.0 when end users log in to the  web application (which is the OAuth 2.0 client) before the OAuth 2.0 flow starts.
 
 The document presents a number of approaches to solving the above problem, some of which are considered more favourable. The approach chosen for a particular deployment depends on its ability to adapt and make the necessary changes.
 
 However, certain prerequisites must be met for the recommendations in this document to be valid:
 
-- The application and the OAuth 2.0  authorization server must have a consistent "view" of their users when it comes to authentication. This means they need to share a common set of requirements regarding assurance levels and identity attributes. In practice, the user typically authenticates with the same eID for both the application and the authorization server.
+- The web application and the OAuth 2.0  authorization server must have a consistent "view" of their users when it comes to authentication. This means they need to share a common set of requirements regarding assurance levels and identity attributes. In practice, the user typically authenticates with the same eID for both the web application and the authorization server.
 
-- The authentication services or modules used by the application and the OAuth 2.0 authorization server should be externalized rather than tightly integrated. For example, they may be a SAML Identity Provider or an OpenID Provider.
+- The authentication services or modules used by the web application and the OAuth 2.0 authorization server should be externalized rather than tightly integrated. For example, they may be a SAML Identity Provider or an OpenID Provider.
 
 
 <a name="problem-description"></a>
@@ -70,19 +70,19 @@ The user, or resource owner, that logs in to the web application and also delega
 </dd>
 <dt>Web application</dt>
 <dd>
-The web application to which the user logs into. The application directs the user to the authentication service for authentication. After the user has logged in, the application wants to access the protected resource obtaining some data about the user. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
+The web application to which the user logs into. The web application directs the user to the authentication service for authentication. After the user has logged in, the web application wants to access the protected resource obtaining some data about the user. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the web application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
 </dd>
 <dt>Protected resource</dt>
 <dd>
-The service that exposes an API from where the application obtains data about the user. This service is configured to require a valid OAuth 2.0 access token in order to grant access and is thus acting as an OAuth 2.0 protected resource.
+The service that exposes an API from where the web application obtains data about the user. This service is configured to require a valid OAuth 2.0 access token in order to grant access and is thus acting as an OAuth 2.0 protected resource.
 </dd>
 <dt>OAuth 2.0 Authorization server</dt>
 <dd>
-The OAuth 2.0 authorization server used by the application (client). It protects the API (protected resource) and authenticates its users by delegating the authentication to the authentication service (below).
+The OAuth 2.0 authorization server used by the web application (client). It protects the API (protected resource) and authenticates its users by delegating the authentication to the authentication service (below).
 </dd>
 <dt>Authentication service</dt>
 <dd>
-An authentication service to which the application and OAuth 2.0 authorization server delegates user authentication to. This service may be a SAML Identity Provider or an OpenID Connect Provider, or even a service implementing another protocol. The service may offer one, or several, authentication methods, or may act as a proxy service for other authentication services. 
+An authentication service to which the web application and OAuth 2.0 authorization server delegates user authentication to. This service may be a SAML Identity Provider or an OpenID Connect Provider, or even a service implementing another protocol. The service may offer one, or several, authentication methods, or may act as a proxy service for other authentication services. 
 </dd>
 </dl>
 
@@ -145,9 +145,9 @@ Organisations that currently rely on a standalone SAML Identity Provider can tra
 
 3. **Align sessions.** Decide how the OP/AS session relates to the upstream SAML session (e.g., honour SSO from the IdP, set OP session lifetimes, and define idle/absolute timeouts). Also, possibly plan for front-channel and/or back-channel logout to avoid surprises.
 
-4. **Register clients and scopes.** Move applications to use the OP/AS for OAuth 2.0/OpenID Connect. Define scopes and claims that reflect what the API actually needs, and align token lifetimes with risk posture.
+4. **Register applications/clients and scopes.** Move applications to use the OP/AS for OAuth 2.0/OpenID Connect. Define scopes and claims that reflect what the API actually needs, and align token lifetimes with risk posture.
 
-5. **Roll out safely.** Migrate low-risk clients first, keep a fallback to direct SAML where necessary, monitor user experience and error rates, then phase out legacy direct integrations.  
+5. **Roll out safely.** Migrate low-risk applications first, keep a fallback to direct SAML where necessary, monitor user experience and error rates, then phase out legacy direct integrations.  
 
 6. **Harden and observe.** Enable centralised auditing, risk signals, step-up policies, and anomaly detection at the OP/AS layer before decommissioning legacy paths.  
 
@@ -224,13 +224,13 @@ sequenceDiagram
 
 When both the web application and the authorization server delegate authentication to the same identity provider, Single Sign-On (SSO) can often be leveraged. By relying on a shared authentication session at the identity provider, both systems can recognise that the user has already been authenticated and avoid asking for credentials again.
 
-The main advantage of this approach is its low cost and high usability. Users experience a seamless flow where authentication performed once is transparently reused by both the application and the authorization server. From an implementation perspective, this method requires minimal additional configuration if the identity provider supports SSO and exposes consistent sessions across relying parties.
+The main advantage of this approach is its low cost and high usability. Users experience a seamless flow where authentication performed once is transparently reused by both the web application and the authorization server. From an implementation perspective, this method requires minimal additional configuration if the identity provider supports SSO and exposes consistent sessions across relying parties.
 
 However, this solution is not always feasible. Some identity providers either lack proper SSO support or enforce user interaction (such as a mandatory confirmation step) even when a valid authentication session exists. In such cases, the user may still encounter repeated prompts, reducing the overall benefit.
 
 Despite these limitations, using SSO is often a good solution whenever the technical prerequisites are met, since it combines simplicity with a good user experience.
 
-Depending on how the identity provider operates, there may be scenarios where an OAuth 2.0 authorization request needs to include additional information in order for SSO to work. For example, the application may allow the user to choose between several identity providers during login. In such cases, the application must indicate which IdP holds the user session when sending the OAuth 2.0 authorization request. See Section 5.1.1.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
+Depending on how the identity provider operates, there may be scenarios where an OAuth 2.0 authorization request needs to include additional information in order for SSO to work. For example, the web application may allow the user to choose between several identity providers during login. In such cases, the web application must indicate which IdP holds the user session when sending the OAuth 2.0 authorization request. See Section 5.1.1.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
 
 The sequence diagram below is similar to the one in [Section 1.1](#problem-description), with the important difference that the user only needs to authenticate once.
 
@@ -291,7 +291,7 @@ Some drawbacks of this method include:
 - It creates additional trust dependencies and is generally not suitable for intra-organisation use.
 - It requires the IdP/OP to be aware of all audiences where the tokens will be used.
 - It prevents the establishment of a user session at the OAuth 2.0 authorization server.
-- Tokens must be exchanged immediately after being received by the client, since SAML and OIDC tokens are short-lived.
+- Tokens must be exchanged immediately after being received by the application/client, since SAML and OIDC tokens are short-lived.
 
 Therefore, this solution may be used in very specific cases, but it should be considered a last resort.
 
