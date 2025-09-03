@@ -16,21 +16,23 @@ In many cases, a user is already logged in to a web application (which also acts
 
     1.1. [Problem Description](#problem-description)
 
-2. [**Combining Authentication and Authorization Server**](#combining-authentication-and-authorization-server)
+2. [**Recommended Solutions**](#recommended-solutions)
 
-    2.1. [Migration via Proxy for an Existing SAML IdP](#migration-via-proxy-for-an-existing-saml-idp)
+    2.1. [Combining Authentication and Authorization Server](#combining-authentication-and-authorization-server)
+
+    2.1.1. [Migration via Proxy for an Existing SAML IdP](#migration-via-proxy-for-an-existing-saml-idp)
     
-    2.2. [Supporting Both SAML and OAuth 2.0/OpenID Connect](#supporting-both-saml-and-oauth-oidc)
+    2.1.2. [Supporting Both SAML and OAuth 2.0/OpenID Connect](#supporting-both-saml-and-oauth-oidc)
 
-    2.3. [Benefits](#benefits)
+    2.1.3. [Benefits](#benefits)
     
-    2.4. [Illustration of the Combined Model](#illustration-of-the-combined-model)
+    2.1.4. [Illustration of the Combined Model](#illustration-of-the-combined-model)
 
-3. [**Using Single Sign-On Capabilities**](#using-single-sign-on-capabilities)
+    2.2. [Using Single Sign-On Capabilities](#using-single-sign-on-capabilities)
 
-4. [**Client Provides Identity Assertion**](#client-provides-identity-assertion)
+    2.3. [Client Provides Identity Assertion](#client-provides-identity-assertion)
     
-5. [**References**](#references)
+3. [**References**](#references)
 
 <a name="introduction"></a>
 ## 1. Introduction
@@ -70,11 +72,11 @@ The user, or resource owner, that logs in to the web application and also delega
 </dd>
 <dt>Web application</dt>
 <dd>
-The web application to which the user logs into. The web application directs the user to the authentication service for authentication. After the user has logged in, the web application wants to access the protected resource obtaining data controlled the user. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the web application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
+The web application to which the user logs into. The web application directs the user to the authentication service for authentication. After the user has logged in, the web application wants to access the protected resource obtaining data that the user owns, or has access rights to. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the web application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
 </dd>
 <dt>Protected resource</dt>
 <dd>
-The service that exposes an API from where the web application obtains data about the user. This service is configured to require a valid OAuth 2.0 access token in order to grant access and is thus acting as an OAuth 2.0 protected resource.
+The service that exposes an API from where the web application requests resources. This service is configured to require a valid OAuth 2.0 access token in order to grant access and is thus acting as an OAuth 2.0 protected resource.
 </dd>
 <dt>OAuth 2.0 Authorization server</dt>
 <dd>
@@ -122,20 +124,25 @@ participant User as Användare
 
     App->>+API: Make API call<br />Access token included
     API->>-App: API Response
-    Note over App: The application has now<br />obtained the requested resource<br />from the protected resource
+    Note over App: The application has now<br />obtained the requested resource<br />from the API
 ```
 
+<a name="recommended-solutions"></a>
+## 2. Recommended Solutions
+
+This section presents a set of solutions to the problem described above, ordered from the most favourable architecture and solution pattern to the least favourable. The choice of solution depends on factors such as the ability to modify existing systems, other application integration patterns, and, of course, cost. 
+
 <a name="combining-authentication-and-authorization-server"></a>
-## 2. Combining Authentication and Authorization Server
+### 2.1. Combining Authentication and Authorization Server
 
 One way to avoid duplicate user authentication is to consolidate the roles of authentication and authorization into a single component. In such a deployment, an OpenID Provider (which is, by definition, an OAuth 2.0 authorization server) fronts the user authentication process and also issues OAuth 2.0/OIDC tokens. The combined system provides user authentication for OAuth transactions, either by authenticating users directly or by acting as a proxy against an external identity provider. 
 
-The combined service therefore acts as an OpenID Provider during user authentication, or as a SAML Identity Provider (see [Section 2.2](#supporting-both-saml-and-oauth-oidc)), and as an OAuth 2.0 Authorization Server for authorization and delegation requests.
+The combined service therefore acts as an OpenID Provider during user authentication, or as a SAML Identity Provider (see [Section 2.1.2](#supporting-both-saml-and-oauth-oidc)), and as an OAuth 2.0 Authorization Server for authorization and delegation requests.
 
-This model reduces architectural complexity and the number of browser round-trips, often yielding a smoother user experience. It is well suited to environments where a central component can govern both sign-in and token issuance with consistent policies for assurance, claims, and session management.
+This model reduces architectural complexity and minimises the number of browser redirects, resulting in a smoother user experience. It is well suited to environments where a central component governs both sign-in and token issuance with consistent policies for assurance, claims, and session management.
 
 <a name="migration-via-proxy-for-an-existing-saml-idp"></a>
-### 2.1. Migration via Proxy for an Existing SAML IdP
+#### 2.1.1. Migration via Proxy for an Existing SAML IdP
 
 Organisations that currently rely on a standalone SAML Identity Provider can transition incrementally by introducing a modern component that acts as both OpenID Provider and OAuth 2.0 authorization server while proxying authentication to the existing SAML IdP:
 
@@ -158,7 +165,7 @@ The overview picture in [Section 1.1](#problem-description) can now be redrawn a
 ![With OP](images/authn-bp-with-op.png)
 
 <a name="supporting-both-saml-and-oauth-oidc"></a>
-### 2.2. Supporting Both SAML and OAuth 2.0/OpenID Connect
+#### 2.1.2. Supporting Both SAML and OAuth 2.0/OpenID Connect
 
 Some products, such as Keycloak, can be configured to act both as a SAML Identity Provider and as an OAuth 2.0 Authorization Server/OpenID Connect Provider at the same time. This flexibility allows organisations to support SAML-based applications that are not yet ready to migrate, while introducing OAuth 2.0 and OpenID Connect for newer applications and APIs.  
 
@@ -167,7 +174,7 @@ Running both protocols side by side provides a practical migration strategy: exi
 Note: It is also possible to configure a Keycloak instance to act as a SAML Identity Provider and an OAuth 2.0 authorization server without introducing OpenID Connect as the authentication protocol. In such cases, the Keycloak IdP would proxy authentication to the “old” IdP as described in the previous section.
 
 <a name="benefits"></a>
-### 2.3. Benefits
+#### 2.1.3. Benefits
 
 By combining the authentication and authorization services, several benefits can be achieved:  
 
@@ -178,7 +185,7 @@ By combining the authentication and authorization services, several benefits can
 - **Mixed-protocol support:** both SAML and OIDC clients can coexist during transition.  
 
 <a name="illustration-of-the-combined-model"></a>
-### 2.4. Illustration of the Combined Model
+#### 2.1.4. Illustration of the Combined Model
 
 The diagram below shows the improved flow compared to the double-login example in [Section 1.1](#problem-description). In this case, the combined authentication and authorization server establishes a user session when the user logs in, and no further authentication is required for subsequent OAuth calls.
 
@@ -224,7 +231,7 @@ sequenceDiagram
 ```
 
 <a name="using-single-sign-on-capabilities"></a>
-## 3. Using Single Sign-On Capabilities
+### 2.2. Using Single Sign-On Capabilities
 
 When both the web application and the authorization server delegate authentication to the same identity provider, Single Sign-On (SSO) can often be leveraged. By relying on a shared authentication session at the identity provider, both systems can recognise that the user has already been authenticated and avoid asking for credentials again.
 
@@ -274,11 +281,11 @@ participant User as Användare
 
     App->>+API: Make API call<br />Access token included
     API->>-App: API Response
-    Note over App: The application has now<br />obtained the requested resource<br />from the protected resource
+    Note over App: The application has now<br />obtained the requested resource<br />from the API
 ```
 
 <a name="client-provides-identity-assertion"></a>
-## 4. Client Provides Identity Assertion
+### 2.3. Client Provides Identity Assertion
 
 Another method is for the web application itself to provide an identity assertion to the authorization server. In this model, the user authenticates to the web application first. The web application then issues a signed assertion, typically in the form of a SAML assertion, OpenID Connect ID token, or a token issued by an external identity provider, that is presented to the authorization server as proof of the user’s identity.
 
@@ -300,7 +307,7 @@ Some drawbacks of this method include:
 Therefore, this solution may be used in very specific cases, but it should be considered a last resort.
 
 <a name="references"></a>
-## 5. References
+## 3. References
 
 <a name="ena-oauth2-profile"></a>
 **\[Ena.OAuth2.Profile\]**
