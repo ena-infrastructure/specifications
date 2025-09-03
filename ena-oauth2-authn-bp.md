@@ -18,7 +18,7 @@ In many cases, a user is already logged in to a web application (which also acts
 
 2. [**Combining Authentication and Authorization Server**](#combining-authentication-and-authorization-server)
 
-    2.1. [Migration via Proxy to an Existing SAML IdP](#migration-via-proxy-to-an-existing-saml-idp)
+    2.1. [Migration via Proxy for an Existing SAML IdP](#migration-via-proxy-for-an-existing-saml-idp)
     
     2.2. [Supporting Both SAML and OAuth 2.0/OpenID Connect](#supporting-both-saml-and-oauth-oidc)
 
@@ -109,7 +109,7 @@ participant User as Användare
     App-->+User: Directs user's browser to<br />OAuth 2.0 AS for<br />authorization and delegation
     User->>-AS: Authorization request
     Note over AS: User needs to<br />be authenticated
-    AS-->+User: Directs user's browser to<br />IdP for authentication
+    AS-->+User: Directs user's browser to<br />IdP for authentication<br />(AS is acting as SAML SP)
     User->>-IdP: Authentication request
     User-->IdP: User authenticates
     IdP-->+User: Posts user's browser back<br />to application with assertion
@@ -128,26 +128,30 @@ participant User as Användare
 <a name="combining-authentication-and-authorization-server"></a>
 ## 2. Combining Authentication and Authorization Server
 
-One way to avoid duplicate user authentication is to consolidate the roles of authentication and authorization into a single component. In such a deployment, an OpenID Provider (which is, by definition, an OAuth 2.0 authorization server) fronts the user authentication process and also issues OAuth 2.0/OIDC tokens. The combined system provides user authentication for OAuth transactions, either by authenticating users directly against a local store or by brokering to an upstream identity provider.
+One way to avoid duplicate user authentication is to consolidate the roles of authentication and authorization into a single component. In such a deployment, an OpenID Provider (which is, by definition, an OAuth 2.0 authorization server) fronts the user authentication process and also issues OAuth 2.0/OIDC tokens. The combined system provides user authentication for OAuth transactions, either by authenticating users directly or by acting as a proxy against an external identity provider. 
+
+The combined service therefore acts as an OpenID Provider during user authentication, or as a SAML Identity Provider (see [Section 2.2](#supporting-both-saml-and-oauth-oidc)), and as an OAuth 2.0 Authorization Server for authorization and delegation requests.
 
 This model reduces architectural complexity and the number of browser round-trips, often yielding a smoother user experience. It is well suited to environments where a central component can govern both sign-in and token issuance with consistent policies for assurance, claims, and session management.
 
-<a name="migration-via-proxy-to-an-existing-saml-idp"></a>
-### 2.1. Migration via Proxy to an Existing SAML IdP
+<a name="migration-via-proxy-for-an-existing-saml-idp"></a>
+### 2.1. Migration via Proxy for an Existing SAML IdP
 
 Organisations that currently rely on a standalone SAML Identity Provider can transition incrementally by introducing a modern component that acts as both OpenID Provider and OAuth 2.0 authorization server while proxying authentication to the existing SAML IdP:
 
 1. **Introduce an OP/AS in front of the SAML IdP.** Configure the new component as a SAML Service Provider towards the “old” IdP, and as an OpenID Provider/OAuth authorization server towards applications.
 
-2. **Preserve assurance and context.** Map SAML `AuthnContextClassRef` values to OpenID Connect `acr`. Ensure that required identity attributes are translated into OpenID Connect claims without loss of meaning. 
+2. **Preserve assurance and context.** Map the SAML representation of authentication context (`AuthnContextClassRef`) to the corresponding OpenID Connect value (`acr`). Ensure that SAML identity attributes are translated into OpenID Connect claims without any loss of meaning. 
 
 3. **Align sessions.** Decide how the OP/AS session relates to the upstream SAML session (e.g., honour SSO from the IdP, set OP session lifetimes, and define idle/absolute timeouts). Also, possibly plan for front-channel and/or back-channel logout to avoid surprises.
 
 4. **Register applications/clients and scopes.** Move applications to use the OP/AS for OAuth 2.0/OpenID Connect. Define scopes and claims that reflect what the API actually needs, and align token lifetimes with risk posture.
 
-5. **Roll out safely.** Migrate low-risk applications first, keep a fallback to direct SAML where necessary, monitor user experience and error rates, then phase out legacy direct integrations.  
+Also, consider the following:
 
-6. **Harden and observe.** Enable centralised auditing, risk signals, step-up policies, and anomaly detection at the OP/AS layer before decommissioning legacy paths.  
+- **Roll out safely.** Migrate low-risk applications first, keep a fallback to direct SAML where necessary, monitor user experience and error rates, then phase out legacy direct integrations.  
+
+- **Harden and observe.** Enable centralised auditing, risk signals, step-up policies, and anomaly detection at the OP/AS layer before decommissioning legacy paths.  
 
 The overview picture in [Section 1.1](#problem-description) can now be redrawn as:
 
@@ -165,10 +169,12 @@ Note: It is also possible to configure a Keycloak instance to act as a SAML Iden
 <a name="benefits"></a>
 ### 2.3. Benefits
 
-- **Simplified architecture:** one policy enforcement point for sign-in, session, and token issuance.  
+By combining the authentication and authorization services, several benefits can be achieved:  
+
+- **Simplified architecture:** a single policy enforcement point for sign-in, session, and token issuance.  
 - **Reduced user friction:** fewer redirects and fewer visible authentications.  
 - **Consistent policy:** uniform handling of assurance levels, attributes/claims, and consent.  
-- **Incremental adoption:** the legacy SAML IdP can remain in place while applications migrate.  
+- **Incremental adoption:** a legacy SAML IdP can remain in place while applications migrate, or continue to serve as the authenticator used by the combined service.  
 - **Mixed-protocol support:** both SAML and OIDC clients can coexist during transition.  
 
 <a name="illustration-of-the-combined-model"></a>
