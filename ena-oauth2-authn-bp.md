@@ -18,7 +18,7 @@ In many cases, a user is already logged in to a web application (which also acts
 
 2. [**Recommended Solutions**](#recommended-solutions)
 
-    2.1. [Combining Authentication and Authorization Server](#combining-authentication-and-authorization-server)
+    2.1. [Combining Authentication and Authorization Servers into a Single Component](#combining-authentication-and-authorization-server)
 
     2.1.1. [Migration via Proxy for an Existing SAML IdP](#migration-via-proxy-for-an-existing-saml-idp)
     
@@ -133,7 +133,7 @@ participant User as Användare
 This section presents a set of solutions to the problem described above, ordered from the most favourable architecture and solution pattern to the least favourable. The choice of solution depends on factors such as the ability to modify existing systems, other application integration patterns, and, of course, cost. 
 
 <a name="combining-authentication-and-authorization-server"></a>
-### 2.1. Combining Authentication and Authorization Server
+### 2.1. Combining Authentication and Authorization Servers into a Single Component
 
 One way to avoid duplicate user authentication is to consolidate the roles of authentication and authorization into a single component. In such a deployment, an OpenID Provider (which is, by definition, an OAuth 2.0 authorization server) fronts the user authentication process and also issues OAuth 2.0/OIDC tokens. The combined system provides user authentication for OAuth transactions, either by authenticating users directly or by acting as a proxy against an external identity provider. 
 
