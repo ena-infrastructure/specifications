@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 User Authentication Best Practices
 
-### Version: 1.0 - draft 01 - 2025-09-02
+### Version: 1.0 - draft 01 - 2025-09-03
 
 ## Abstract
 
@@ -49,7 +49,7 @@ The document presents a number of approaches to solving the above problem, some 
 
 However, certain prerequisites must be met for the recommendations in this document to be valid:
 
-- The web application and the OAuth 2.0  authorization server must have a consistent "view" of their users when it comes to authentication. This means they need to share a common set of requirements regarding assurance levels and identity attributes. In practice, the user typically authenticates with the same eID for both the web application and the authorization server.
+- The web application and the OAuth 2.0 authorization server must maintain a consistent "view" of their users with respect to authentication. This requires them to share a common set of requirements regarding assurance levels and identity attributes. In theory, this means that the user typically authenticates with the same eID for both the web application and the authorization server. In practice, however, the same eID may not be sufficient, since some identity providers also release attributes such as roles and assignments. In such cases, the requirement is that both the web application and the authorization server use the same identity provider.
 
 - The authentication services or modules used by the web application and the OAuth 2.0 authorization server should be externalized rather than tightly integrated. For example, they may be a SAML Identity Provider or an OpenID Provider.
 
@@ -70,7 +70,7 @@ The user, or resource owner, that logs in to the web application and also delega
 </dd>
 <dt>Web application</dt>
 <dd>
-The web application to which the user logs into. The web application directs the user to the authentication service for authentication. After the user has logged in, the web application wants to access the protected resource obtaining some data about the user. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the web application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
+The web application to which the user logs into. The web application directs the user to the authentication service for authentication. After the user has logged in, the web application wants to access the protected resource obtaining data controlled the user. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the web application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
 </dd>
 <dt>Protected resource</dt>
 <dd>
@@ -78,7 +78,7 @@ The service that exposes an API from where the web application obtains data abou
 </dd>
 <dt>OAuth 2.0 Authorization server</dt>
 <dd>
-The OAuth 2.0 authorization server used by the web application (client). It protects the API (protected resource) and authenticates its users by delegating the authentication to the authentication service (below).
+The OAuth 2.0 authorization server used by the web application (client). It protects the API (protected resource) and authenticates its users by delegating the authentication to the authentication service.
 </dd>
 <dt>Authentication service</dt>
 <dd>
@@ -122,10 +122,8 @@ participant User as Användare
 
     App->>+API: Make API call<br />Access token included
     API->>-App: API Response
-    Note over App: The application has now<br />obtained "user's data" from the<br />protected resource
+    Note over App: The application has now<br />obtained the requested resource<br />from the protected resource
 ```
-
-As shown in the diagram above, both the web application and the OAuth 2.0 authorization server use the same SAML Identity Provider (which could also be an OpenID Provider). In this case, a natural solution is to make use of the authorization server’s Single Sign-On (SSO) capabilities (see [Section&nbsp;3](#using-single-sign-on-capabilities) below). However, SSO is not always feasible. For example, the Identity Provider might not support SSO, or it may require user interaction even when the authentication can technically be reused.
 
 <a name="combining-authentication-and-authorization-server"></a>
 ## 2. Combining Authentication and Authorization Server
@@ -270,7 +268,7 @@ participant User as Användare
 
     App->>+API: Make API call<br />Access token included
     API->>-App: API Response
-    Note over App: The application has now<br />obtained "user's data" from the<br />protected resource
+    Note over App: The application has now<br />obtained the requested resource<br />from the protected resource
 ```
 
 <a name="client-provides-identity-assertion"></a>
