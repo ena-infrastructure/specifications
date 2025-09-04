@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-06-16
+### Version: 1.0 - draft 01 - 2025-09-04
 
 ## Abstract
 
@@ -675,6 +675,8 @@ The following request parameters are REQUIRED for the client to pass to the auth
 Additional request parameters that are specific to each grant type apply and are specified for the respective grant type. See [Section 5, Grant Types](#grant-types).
 
 The client making the token request MUST authenticate using either the `private_key_jwt` method or, if supported by the authorization server and permitted by policy, Mutual TLS. See [Section 8.3.1, Signed JWT for Client Authentication](#signed-jwt-for-client-authentication) and [Section 8.3.2, Mutual TLS for Client Authentication](#mutual-tls-for-client-authentication) for further requirements. The authorization server MUST reject any token request that lacks client authentication or uses a method not permitted by this profile.
+
+If `private_key_jwt` client authentication is used, the authorization server MUST verify that the `sub` and `iss` claims of the client assertion JWT (see [Section 8.3.1](#signed-jwt-for-client-authentication)) are equal to the `client_id` request parameter of the token request. Otherwise, the request MUST be rejected. 
 
 The authorization server MUST authenticate the client request before proceeding.
 
