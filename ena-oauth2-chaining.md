@@ -81,6 +81,10 @@ The following sections specify how OAuth 2.0 Token Exchange, as defined in \[[RF
 
 The previous section described the challenge of identity and authorization chaining for services within the same domain, i.e., where the same trust model and authorization server are used. However, applications may also need to access resources outside their own domain, where a different authorization server and trust model apply.   
 
+![Pic](images/api-call-domains.png)
+
+TODO: ...
+
 <a name="references"></a>
 ## X. References
 
