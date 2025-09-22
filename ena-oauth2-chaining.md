@@ -124,6 +124,42 @@ The following sections specify how OAuth 2.0 Token Exchange, as defined in \[[RF
 <a name="2-2-solution-overview"></a>
 ### 2.2. Solution Overview
 
+```mermaid
+sequenceDiagram
+autonumber
+    
+    actor User as User
+    participant Service as Application<br/>(Client)
+    participant AsA as Authorization Server A
+    participant ApiA as Protected Resource<br/>API A
+    participant ApiB as Protected Resource<br/>API B
+
+    User-->>Service: Action ...
+
+    Service-->>+User: Redirect
+    User->>-AsA: Authorization Request
+
+    User-->AsA: Authenticate and consent
+
+    AsA-->>+User: Redirect
+    User->>-Service: Authorization Response w. code
+
+    Service->>+AsA: Token Request w. code
+    AsA->>-Service: Token Response w. Access Token
+
+    Service->>+ApiA: Make API call<br/>Include Access Token
+
+    ApiA->>+AsA: Token Exchange Request
+    AsA->>-ApiA: Token Exchange Response<br/>with Access Token
+
+    ApiA->>+ApiB: Make API call<br/>Include new Access Token
+    ApiB->>-ApiA: API response
+
+    ApiA->>-Service: API response
+
+    Service-->>User: Response ...
+```
+
 <a name="2-3-token-exchange-request"></a>
 ### 2.3. Token Exchange Request
 
@@ -158,6 +194,86 @@ The solution to the above challenges requires establishing a trust relationship 
 
 <a name="3-2-solution-overview"></a>
 ### 3.2. Solution Overview
+
+```mermaid
+sequenceDiagram
+autonumber
+    
+    box Domain A
+        actor User as User
+        participant Service as Application<br/>(Client)
+        participant AsA as Authorization Server A
+        participant ApiA as Protected Resource<br/>API A
+    end
+
+    box Domain B
+        participant AsB as Authorization Server B
+        participant ApiB as Protected Resource<br/>API B
+    end
+
+    User-->Service: Logged in
+    User-->AsA: Has session at Authorization Server
+
+    User-->>Service: Action ...
+
+    Service->>+AsA: Token Exchange Request (RFC8693)
+    AsA->>-Service: Authorization Grant JWT (RFC7523)
+
+    Service->>+AsB: Access Token Request<br />Pass Authorization Grant JWT (RFC7523)
+    AsB->>-Service: Access Token Response
+
+    Service->>+ApiB: Make API call<br />Include Access Token
+    ApiB->>-Service: API response
+
+    Service-->>User: Response ...
+```
+
+The below sequence diagram illustrates how the problem statement from the previous section can be applied to inter-domain calls.
+
+```mermaid
+sequenceDiagram
+autonumber
+    
+    box Domain A
+        actor User as User
+        participant Service as Application<br/>(Client)
+        participant AsA as Authorization Server A
+        participant ApiA as Protected Resource<br/>API A
+    end
+
+    box Domain B
+        participant AsB as Authorization Server B
+        participant ApiB as Protected Resource<br/>API B
+    end
+
+    User-->>Service: Action ...
+
+    Service-->>+User: Redirect
+    User->>-AsA: Authorization Request
+
+    User-->AsA: Authenticate and consent
+
+    AsA-->>+User: Redirect
+    User->>-Service: Authorization Response w. code
+
+    Service->>+AsA: Token Request w. code
+    AsA->>-Service: Token Response w. Access Token
+
+    Service->>+ApiA: Make API call<br/>Include Access Token
+
+    ApiA->>+AsA: Token Exchange Request (RFC8693)
+    AsA->>-ApiA: Authorization Grant JWT (RFC7523)
+
+    ApiA->>+AsB: Access Token Request<br />Pass Authorization Grant JWT (RFC7523)
+    AsB->>-ApiA: Access Token Response
+
+    ApiA->>+ApiB: Make API call<br />Include Access Token
+    ApiB->>-ApiA: API response
+
+    ApiA->>-Service: API response
+
+    Service-->>User: Response ...
+```
 
 <a name="domain-trust-relationships"></a>
 #### 3.2.1. Domain Trust Relationships
