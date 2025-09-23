@@ -296,6 +296,7 @@ Below is a simplified JWT payload of an access token issued by `https://as.examp
   "iss": "https://as.example.com",
   "aud": "https://api2.example.com",
   "sub": "user-1234",
+  "acr": "http://id.elegnamnden.se/loa/1.0/loa3",
   "client_id": "https://api1.example.com",
   "act": {
     "sub": "https://api1.example.com",
@@ -304,6 +305,8 @@ Below is a simplified JWT payload of an access token issued by `https://as.examp
     }
   },
   "scope": "api-read",
+  "jti": "987ui87665456",
+  "nbf": 1695379200,
   "iat": 1695379200,
   "exp": 1695382800
 }
@@ -311,8 +314,8 @@ Below is a simplified JWT payload of an access token issued by `https://as.examp
 
 In this example:
 
-- The `sub` claim identifies the end-user (user-1234).
-- The `client_id` claim identifies https://api1.example.com, the protected resource acting as a client in the token exchange.
+- The `sub` claim identifies the end-user (user-1234) and the `acr` claim tells under which authentication context class the user was authenticated.
+- The `client_id` claim identifies `https://api1.example.com`, the protected resource acting as a client in the token exchange.
 - The first `sub` claim under the `act` claim is also `https://api1.example.com`, and therefore always equals the `client_id`.
 - The nested `sub` claim under the `act` claim identifies `https://app.example.com`, the original client application.
 - The `aud` claim identifies `https://api2.example.com`, the downstream protected resource.
@@ -322,103 +325,139 @@ This chaining ensures that all involved actors are visible to the downstream ser
 <a name="2-5-examples"></a>
 ### 2.5. Examples
 
-This section provides a non-normative, end-to-end illustration of token exchange with `private_key_jwt` client authentication, aligned with the Ena OAuth 2.0 Interoperability Profile. It shows: the inbound access token (JWT) from `https://app.example.com` to `https://api1.example.com`, the full HTTP token exchange request that `https://api1.example.com` sends to `https://as.example.com/token` (including a signed `client_assertion`), the HTTP response, and the newly issued access token (JWT) for `https://api2.example.com`. For readability, long values are folded and signatures are abbreviated. All examples use the scope `api-read`.
+This section provides a non-normative, end-to-end illustration of token exchange, aligned with the "Ena OAuth 2.0 Interoperability Profile", \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
 
-#### 2.5.1. Inbound Access Token (JWT)
+The example illustrates:
 
-Access token presented by `https://app.example.com` to `https://api1.example.com`:
+- The inbound access token (JWT) from the application, `https://app.example.com`, to the first protected resource, `https://api1.example.com`.
 
-    {
-      "iss": "https://as.example.com",
-      "aud": "https://api1.example.com",
-      "sub": "user-1234",
-      "client_id": "https://app.example.com",
-      "scope": "api-read",
-      "iat": 1695375600,
-      "exp": 1695379200
-    }
+- The full HTTP token exchange request that the first protected resource, `https://api1.example.com`, sends to the authorization server, `https://as.example.com/token` (including a signed `client_assertion`).
 
-#### 2.5.2. Token Exchange Request (private_key_jwt)
 
-`https://api1.example.com` acts as a client and calls the AS token endpoint, authenticating with `private_key_jwt`. The inbound access token above is supplied as the `subject_token` and a new access token is requested for the audience `https://api2.example.com`.
+- The HTTP response, and the newly issued access token (JWT) for the second protected resource, `https://api2.example.com`. 
+
+For readability, long values are folded and signatures are abbreviated. All examples use the scope `api-read`.
+
+**Inbound Access Token (JWT):**
+
+Access token presented by the application (`https://app.example.com`) to the first protected resource (`https://api1.example.com`):
+
+```json
+{
+  "iss": "https://as.example.com",
+  "aud": "https://api1.example.com",
+  "sub": "user-1234",
+  "acr": "http://id.elegnamnden.se/loa/1.0/loa3",
+  "client_id": "https://app.example.com",
+  "scope": "api-read",
+  "jti": "inbound-1234-unique-jwt-id",
+  "nbf": 1695375550,
+  "iat": 1695375600,
+  "exp": 1695379200
+}
+```
+
+**Token Exchange Request:**
+
+The protected resource `https://api1.example.com` acts as an OAuth 2.0 client and calls the AS token endpoint for a token exchange request, authenticating with `private_key_jwt`. The inbound access token above is supplied as the `subject_token` and a new access token is requested for the audience `https://api2.example.com`.
 
 HTTP request:
 
-    POST /token HTTP/1.1
-    Host: as.example.com
-    Content-Type: application/x-www-form-urlencoded
+```
+POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
 
-    grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange&
-    subject_token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FzLmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcGkxLmV4YW1wbGUuY29tIiwic3ViIjoidXNlci0xMjM0IiwiY2xpZW50X2lkIjoiaHR0cHM6Ly9hcHAuZXhhbXBsZS5jb20iLCJzY29wZSI6ImFwaS1yZWFkIiwiaWF0IjoxNjk1Mzc1NjAwLCJleHAiOjE2OTUzNzkyMDB9.MEUCIQDt...-SUBJECT-TOKEN-SIGNATURE...&
-    subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token&
-    audience=https%3A%2F%2Fapi2.example.com&
-    scope=api-read&
-    client_id=https%3A%2F%2Fapi1.example.com&
-    client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
-    client_assertion=eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FwaTEuZXhhbXBsZS5jb20iLCJzdWIiOiJodHRwczovL2FwaTEuZXhhbXBsZS5jb20iLCJhdWQiOiJodHRwczovL2FzLmV4YW1wbGUuY29tL3Rva2VuIiwianRpIjoiYTMtMTIzNC11bmlxdWUtand0LWlkIiwibmJmIjoxNjk1Mzc1NTUwLCJpYXQiOjE2OTUzNzU2MDAsImV4cCI6MTY5NTM3NTkwMH0.MIIB...-CLIENT-ASSERTION-SIGNATURE...
+grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange&
+subject_token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FzLmV4YW1wbGUu \
+  Y29tIiwiYXVkIjoiaHR0cHM6Ly9hcGkxLmV4YW1wbGUuY29tIiwic3ViIjoidXNlci0xMjM0IiwiY2xpZW50X \
+  2lkIjoiaHR0cHM6Ly9hcHAuZXhhbXBsZS5jb20iLCJzY29wZSI6ImFwaS1yZWFkIiwianRpIjoiaW5ib3VuZC \
+  0xMjM0LXVuaXF1ZS1qd3QtaWQiLCJuYmYiOjE2OTUzNzU1NTAsImlhdCI6MTY5NTM3NTYwMCwiZXhwIjoxNjk \
+  1Mzc5MjAwfQ.MEUCIQDt...&
+subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token&
+audience=https%3A%2F%2Fapi2.example.com&
+scope=api-read&
+client_id=https%3A%2F%2Fapi1.example.com&
+client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&
+client_assertion=eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJ \
+  odHRwczovL2FwaTEuZXhhbXBsZS5jb20iLCJzdWIiOiJodHRwczovL2FwaTEuZXhhbXBsZS5jb20iLCJhdWQi \
+  OiJodHRwczovL2FzLmV4YW1wbGUuY29tL3Rva2VuIiwianRpIjoiYTMtMTIzNC11bmlxdWUtand0LWlkIiwib \
+  mJmIjoxNjk1Mzc1NTUwLCJpYXQiOjE2OTUzNzU2MDAsImV4cCI6MTY5NTM3NTkwMH0.MIIB...
+```
 
-For reference, the decoded `client_assertion` (private_key_jwt) components:
+For reference, the decoded `client_assertion` (`private_key_jwt`) components:
 
 JOSE header:
 
-    {
-      "alg": "RS256",
-      "kid": "kid-001",
-      "typ": "JWT"
-    }
+```json
+{
+  "alg": "RS256",
+  "kid": "kid-001",
+  "typ": "client-authentication+jwt"
+}
+```
 
 JWT claims:
 
-    {
-      "iss": "https://api1.example.com",
-      "sub": "https://api1.example.com",
-      "aud": "https://as.example.com/token",
-      "jti": "a3-1234-unique-jwt-id",
-      "nbf": 1695375550,
-      "iat": 1695375600,
-      "exp": 1695375900
-    }
+```json
+{
+  "iss": "https://api1.example.com",
+  "sub": "https://api1.example.com",
+  "aud": "https://as.example.com",
+  "jti": "a3-1234-unique-jwt-id",
+  "nbf": 1695375550,
+  "iat": 1695375600,
+  "exp": 1695375900
+}
+```
 
-Notes:
-- `iss` and `sub` are the client identifier of `https://api1.example.com`.
-- `aud` targets the exact token endpoint URL.
-- `jti` is unique per assertion; `nbf`, `iat`, and `exp` constrain the validity window.
-
-#### 2.5.3. Token Exchange Response
+**Token Exchange Response:**
 
 HTTP response:
 
-    HTTP/1.1 200 OK
-    Content-Type: application/json
-    Cache-Control: no-store
-    Pragma: no-cache
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+Pragma: no-cache
 
-    {
-      "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FzLmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcGkyLmV4YW1wbGUuY29tIiwic3ViIjoidXNlci0xMjM0IiwiYWN0Ijp7ImNsaWVudF9pZCI6Imh0dHBzOi8vYXBpMS5leGFtcGxlLmNvbSJ9LCJzY29wZSI6ImFwaS1yZWFkIiwiaWF0IjoxNjk1Mzc5MjAwLCJleHAiOjE2OTUzODI4MDB9.Fh0B...-ACCESS-TOKEN-SIGNATURE...",
-      "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
-      "token_type": "Bearer",
-      "expires_in": 3600,
-      "scope": "api-read"
-    }
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodH \
+  RwczovL2FzLmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcGkyLmV4YW1wbGUuY29tIiwic3ViIjoidXNlci0x \
+  MjM0IiwiYWN0Ijp7InN1YiI6Imh0dHBzOi8vYXBpMS5leGFtcGxlLmNvbSIsImFjdCI6eyJzdWIiOiJodHRwczovL2 \
+  FwcC5leGFtcGxlLmNvbSJ9fSwic2NvcGUiOiJhcGktcmVhZCIsImp0aSI6Im5ldy0xMjM0LXVuaXF1ZS1qd3QtaWQi \
+  LCJuYmYiOjE2OTUzNzkyMDAsImlhdCI6MTY5NTM3OTIwMCwiZXhwIjoxNjk1MzgyODAwfQ.Fh0B...",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "api-read"
+}
+```
 
-#### 2.5.4. Newly Issued Access Token (JWT)
+**Newly Issued Access Token (JWT):**
 
 Decoded claims of the issued access token intended for `https://api2.example.com`:
 
-    {
-      "iss": "https://as.example.com",
-      "aud": "https://api2.example.com",
-      "sub": "user-1234",
-      "act": { "client_id": "https://api1.example.com" },
-      "scope": "api-read",
-      "iat": 1695379200,
-      "exp": 1695382800
+```json
+{
+  "iss": "https://as.example.com",
+  "aud": "https://api2.example.com",
+  "sub": "user-1234",
+  "acr": "http://id.elegnamnden.se/loa/1.0/loa3",
+  "client_id": "https://api1.example.com",
+  "act": {
+    "sub": "https://api1.example.com",
+    "act": {
+      "sub": "https://app.example.com"
     }
-
-Security notes:
-- The inbound access token contains the end-user identity (`sub`) and the original client (`client_id` = `https://app.example.com`), with audience restricted to `https://api1.example.com`.
-- The token exchange request uses `private_key_jwt` where `https://api1.example.com` authenticates to `https://as.example.com/token` using a signed JWT that includes `jti`, `nbf`, `iat`, and `exp`.
-- The issued access token preserves the user identity (`sub`) and identifies the calling protected resource via the actor claim (`act.client_id`), with `aud` set to `https://api2.example.com` and `scope` set to `api-read`.
+  },
+  "scope": "api-read",
+  "jti": "new-1234-unique-jwt-id",
+  "nbf": 1695379200,
+  "iat": 1695379200,
+  "exp": 1695382800
+}
+```
 
 <a name="accessing-protected-resources-in-other-domains"></a>
 ## 3. Accessing Protected Resources in Other Domains
