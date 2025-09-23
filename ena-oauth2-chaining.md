@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-09-22
+### Version: 1.0 - draft 01 - 2025-09-23
 
 ## Abstract
 
@@ -291,8 +291,7 @@ As defined in Section 4.1 of \[[RFC8693](#rfc8693)\], the `act` claim may be a n
 
 Below is a simplified JWT payload of an access token issued by `https://as.example.com` to be used at `https://api2.example.com`.
 
-```json
-{
+```json{
   "iss": "https://as.example.com",
   "aud": "https://api2.example.com",
   "sub": "user-1234",
@@ -309,8 +308,7 @@ Below is a simplified JWT payload of an access token issued by `https://as.examp
   "nbf": 1695379200,
   "iat": 1695379200,
   "exp": 1695382800
-}
-```
+}```
 
 In this example:
 
