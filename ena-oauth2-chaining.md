@@ -38,29 +38,31 @@ This document specifies solutions for chaining OAuth 2.0 identity and authorizat
 
     3.2. [Solution Overview](#3-2-solution-overview)
     
-    3.2.1. [Domain Trust Relationships](#domain-trust-relationships)
+    3.2.1. [Domain Trust Relationships and Prerequisites](#domain-trust-relationships-and-prerequisites)
 
     3.3. [Token Exchange](#3-3-token-exchange)
 
     3.3.1. [Token Exchange Request](#3-3-1-token-exchange-request)
 
-    3.3.2. [Processing Requirements](#3-3-2-processing-requirements)
+    3.3.2. [Inbound Token Requirements](#3-3-2-inbound-token-requirements)
 
-    3.3.3. [Inbound Token Requirements](#3-3-3-inbound-token-requirements)
+    3.3.3. [Processing Requirements](#3-3-3-processing-requirements)
 
-    3.3.4. [Token Exchange Response](#3-3-4-token-exchange-response)
+    3.3.4. [Token Exchange Response and JWT Contents](#token-exchange-response-and-jwt-contents)
 
     3.4. [Authorization Grant Requirements](#authorization-grant-requirements)
 
-    3.4.1. [JWT Contents](#jwt-contents)
+    3.4.1. [Access Token Request According to RFC7523](#access-token-request-according-to-rfc7523)
 
-    3.4.2. [Access Token Request According to RFC7523](#access-token-request-according-to-rfc7523)
+    3.4.2. [Processing of JWT Authorization Grant](#processing-of-jwt-authorization-grant)
 
-    3.4.3. [Processing of JWT Authorization Grant](#processing-of-jwt-authorization-grant)
+    3.4.3. [Requirements for Issued Access Token](#requirements-for-issued-access-token)
+    
+    3.5. [Additional Features](#additional-features)
 
-    3.4.4. [Requirements for Issued Access Token](#requirements-for-issued-access-token)
+    3.5. [Additional Features and Advanced Topics](#additional-features-and-advanced-topics)
 
-    3.5. [Examples](#3-5-examples)
+    3.6. [Examples](#3-6-examples)
 
 4. [**References**](#references)
 
@@ -291,7 +293,8 @@ As defined in Section 4.1 of \[[RFC8693](#rfc8693)\], the `act` claim may be a n
 
 Below is a simplified JWT payload of an access token issued by `https://as.example.com` to be used at `https://api2.example.com`.
 
-```json{
+```json
+{
   "iss": "https://as.example.com",
   "aud": "https://api2.example.com",
   "sub": "user-1234",
@@ -308,7 +311,8 @@ Below is a simplified JWT payload of an access token issued by `https://as.examp
   "nbf": 1695379200,
   "iat": 1695379200,
   "exp": 1695382800
-}```
+}
+```
 
 In this example:
 
@@ -477,6 +481,17 @@ The solution to the above challenges requires establishing a trust relationship 
 <a name="3-2-solution-overview"></a>
 ### 3.2. Solution Overview
 
+> Note: The draft "OAuth Identity and Authorization Chaining Across Domains", \[[Draft.ID-Chaining](#draft-id-chaining)\], focuses on solving the problem described above. Future versions of this profile will reference this specification if and when it reaches RFC status. Until then, the draft is informational and no references will be made to it.
+
+The solution for identity and authorization chaining within the same trust domain involves exchanging an access token for another access token containing the correct audience and scope values. However, when a call is made to another trust domain, the output from the token exchange cannot be an access token usable at the intended protected resource. This is because:
+
+- The authorization server in the originating domain does not have knowledge of protected resources in the target domain with respect to authorization decisions, and  
+- a protected resource in the target domain cannot verify an access token issued by an authorization server in another trust domain.
+
+Therefore, token exchange in these cases must use an intermediate proof issued by the authorization server in the originating domain and trusted by the authorization server in the target domain. This proof is represented as a signed JWT in which the authorization server in the originating domain asserts relevant claims about the sending client and delegating user.
+
+For this to function, a trust relationship must be configured between the authorization servers in the two domains; see [Section 3.2.1](#domain-trust-relationships-and-prerequisites) below.
+
 ```mermaid
 sequenceDiagram
 autonumber
@@ -510,11 +525,28 @@ autonumber
     Service-->>User: Response ...
 ```
 
-The below sequence diagram illustrates how the problem statement from the previous section can be applied to inter-domain calls.
+The sequence diagram above describes a token exchange operation that enables an application in domain A to invoke a protected resource in domain B.
+
+1. The user is assumed to be logged in to the application in domain A. How this login was performed is out of scope for this profile.
+
+2. For this illustration, it is assumed that the end-user has a relationship with the authorization server, that is, at some point the user was directed to the authorization server and delegated rights to the application to access a protected resource.
+
+3. The user performs an action in the application that requires the application to access a resource in domain B.
+
+4. To obtain a signed attestation from the authorization server in domain A, which can then be used to request an access token for domain B, the application makes an OAuth 2.0 token exchange request to the authorization server. Included in this request is a previously acquired access or refresh token. See [Section 3.3.1](#3-3-1-token-exchange-request) and [Section 3.3.2](#3-3-2-inbound-token-requirements).
+
+5. Based on its configuration and established trust relationships, the authorization server in domain A returns a signed JWT. This JWT contains claims attesting to the information needed by the authorization server in domain B to issue an access token. See [Section 3.3.4](#token-exchange-response-and-jwt-contents).
+
+6. The application (client) in domain A then uses the received JWT authorization grant in a token request to the authorization server in domain B. This is done according to the authorization grant processing requirements defined in \[[RFC7523](#rfc7523)\]. See [Section 3.4.1](#access-token-request-according-to-rfc7523).
+
+7. The authorization server in domain B processes the request according to [Section 3.4.2](#processing-of-jwt-authorization-grant) and issues an access token that can be used to access the protected resource in domain B. See [Section 3.4.3](#requirements-for-issued-access-token).
+
+Steps 8–10 follow normal OAuth 2.0 access token usage: the client provides the access token in the request to the protected resource, which validates it before granting access and returning a response.
+
+The cross-domain use case can also be combined with the previous use case, where a protected resource in domain A acts as an OAuth 2.0 client towards domain B. This is illustrated in the sequence diagram below. The requirements in the following sections also cover these usages of token exchange.
 
 ```mermaid
 sequenceDiagram
-autonumber
     
     box Domain A
         actor User as User
@@ -546,10 +578,10 @@ autonumber
     ApiA->>+AsA: Token Exchange Request (RFC8693)
     AsA->>-ApiA: Authorization Grant JWT (RFC7523)
 
-    ApiA->>+AsB: Access Token Request<br />Pass Authorization Grant JWT (RFC7523)
+    ApiA->>+AsB: Access Token Request<br/>Pass Authorization Grant JWT (RFC7523)
     AsB->>-ApiA: Access Token Response
 
-    ApiA->>+ApiB: Make API call<br />Include Access Token
+    ApiA->>+ApiB: Make API call<br/>Include Access Token
     ApiB->>-ApiA: API response
 
     ApiA->>-Service: API response
@@ -557,8 +589,26 @@ autonumber
     Service-->>User: Response ...
 ```
 
-<a name="domain-trust-relationships"></a>
-#### 3.2.1. Domain Trust Relationships
+<a name="domain-trust-relationships-and-prerequisites"></a>
+#### 3.2.1. Domain Trust Relationships and Prerequisites
+
+For the above token exchange flows to be possible, there must be a trust relationship configured in which the authorization server in the target domain accepts authorization grant JWTs issued by the authorization server in the originating domain. In addition, all entities in the originating domain that make cross-domain calls must be registered as OAuth 2.0 clients at the authorization server in the target domain.
+
+How these relationships are established, and the requirements for trust, are out of scope for this specification.
+
+However, the minimum requirements for establishing the cross-domain use case are as follows:
+
+- The key used by the authorization server in the originating domain MUST be known to the authorization server in the target domain.
+
+- The issuer identifier for the authorization server in the originating domain MUST be known to the authorization server in the target domain and tied to the corresponding key.
+
+- All entities in the originating domain that may act as clients towards the target domain MUST be registered at the authorization server in the target domain.
+
+    - How this registration is performed is out of scope for this specification. It may be done out of band via manual procedures, or through automatic client registration using OpenID Federation.
+    
+    - An OAuth 2.0 entity in the originating domain MAY be named or identified differently in the target domain. In such cases, the authorization server in the originating domain MUST be aware of both identities when issuing the authorization grant JWT.
+
+Also, there is no guarantee that the scopes used in the target domain have any meaning in the originating domain. Therefore, the authorization servers may need to maintain mappings of scopes and other rights, and define how to apply these control mechanisms when managing authorization across domain boundaries. See [Section 3.5](#additional-features-and-advanced-topics) below.
 
 <a name="3-3-token-exchange"></a>
 ### 3.3. Token Exchange
@@ -566,32 +616,32 @@ autonumber
 <a name="3-3-1-token-exchange-request"></a>
 #### 3.3.1. Token Exchange Request
 
-<a name="3-3-2-processing-requirements"></a>
-#### 3.3.2. Processing Requirements
+<a name="3-3-2-inbound-token-requirements"></a>
+#### 3.3.2. Inbound Token Requirements
 
-<a name="3-3-3-inbound-token-requirements"></a>
-#### 3.3.3. Inbound Token Requirements
+<a name="3-3-3-processing-requirements"></a>
+#### 3.3.3. Processing Requirements
 
-<a name="3-3-4-token-exchange-response"></a>
-#### 3.3.4. Token Exchange Response
+<a name="token-exchange-response-and-jwt-contents"></a>
+#### 3.3.4. Token Exchange Response and JWT Contents
 
 <a name="authorization-grant-requirements"></a>
 ### 3.4. Authorization Grant Requirements
 
-<a name="jwt-contents"></a>
-#### 3.4.1. JWT Contents
-
 <a name="access-token-request-according-to-rfc7523"></a>
-#### 3.4.2. Access Token Request According to RFC7523
+#### 3.4.1. Access Token Request According to RFC7523
 
 <a name="processing-of-jwt-authorization-grant"></a>
-#### 3.4.3. Processing of JWT Authorization Grant
+#### 3.4.2. Processing of JWT Authorization Grant
 
 <a name="requirements-for-issued-access-token"></a>
-#### 3.4.4. Requirements for Issued Access Token
+#### 3.4.3. Requirements for Issued Access Token
 
-<a name="3-5-examples"></a>
-### 3.5. Examples
+<a name="additional-features-and-advanced-topics"></a>
+### 3.5. Additional Features and Advanced Topics
+
+<a name="3-6-examples"></a>
+### 3.6. Examples
 
 <a name="references"></a>
 ## 4. References
