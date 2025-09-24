@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-09-04
+### Version: 1.0 - draft 01 - 2025-09-24
 
 ## Abstract
 
@@ -98,7 +98,7 @@ Over the years, numerous extensions and features have been introduced, making â€
     
 7. [**Optional Extensions**](#optional-extensions)
 
-    7.1. [The Resource Parameter](#the-resource-parameter)
+    . [The Resource Parameter](#the-resource-parameter)
 
     7.2. [JAR &ndash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
     
@@ -1321,7 +1321,7 @@ Therefore, for authorization servers and clients compliant with this profile, it
 
 Entities compliant with this profile that support the `resource` parameter MUST adhere to the requirements stated in \[[RFC8707](#rfc8707)\], with the following additions and clarifications:
 
-* Unless overridden by local policy, the client MUST use the Resource Identifier of the protected resource it is requesting access to as the value of the `resource` parameter. See [Section 4.3, Protected Resource Identity and Registration](#protected-resource-identity-and-registration).
+* If the Resource Identifier of the protected resource (see [Section 4.3](#protected-resource-identity-and-registration)) is known to the client, this identifier SHOULD be used as the value of the `resource` parameter. If the Resource Identifier is not known to the client, the `resource` parameter MUST be assigned in accordance with the requirements in Section 2 of \[[RFC8707](#rfc8707)\].
 
 * An authorization server receiving a `resource` parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response where the `error` parameter is set to `invalid_target`. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.
 
