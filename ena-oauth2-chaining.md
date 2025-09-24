@@ -670,7 +670,7 @@ A client in the originating domain (or a protected resource acting as a client) 
 Client authentication at the token endpoint MUST follow \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. If `private_key_jwt` is used, the `iss` and `sub` of the client assertion MUST equal the client’s identifier registered at the originating authorization server.
 
 > **For servers supporting both use cases.** An authorization server that supports both the intra-domain exchange in [Section 2](#protected-resource-acting-as-an-client) and the cross-domain exchange in this section MUST use the `requested_token_type` parameter to disambiguate the requested behaviour:
-
+>
 > If `requested_token_type` is set to `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request under the rules of [Section 2](#protected-resource-acting-as-an-client), and if `requested_token_type` is set to `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request under the rules of this section.
 >
 > Clients SHOULD always supply `requested_token_type`. If `requested_token_type` is omitted, the server MAY infer intent from the target indicator, where the cross-domain case will be chosen if the target identifies an authorization server, and the intra-domain case will be chosen if the target identifies a protected resource within the same domain.
