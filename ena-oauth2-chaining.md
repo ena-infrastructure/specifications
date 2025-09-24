@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-09-23
+### Version: 1.0 - draft 01 - 2025-09-24
 
 ## Abstract
 
@@ -56,19 +56,25 @@ This document specifies solutions for chaining OAuth 2.0 identity and authorizat
 
     3.4.2. [Processing of JWT Authorization Grant](#processing-of-jwt-authorization-grant)
 
-    3.4.3. [Requirements for Issued Access Token](#requirements-for-issued-access-token)
-    
-    3.5. [Additional Features](#additional-features)
+    3.4.3. [Token Response](#3-4-3-token-response)    
 
     3.5. [Additional Features and Advanced Topics](#additional-features-and-advanced-topics)
+    
+    3.5.1. [Scope Mappings Across Domains](#scope-mappings-across-domains)
+    
+    3.5.2. [Transcription of User Identity Claims](#transcription-of-user-identity-claims)
 
     3.6. [Examples](#3-6-examples)
+    
+4. [**Interoperability and Compliance Considerations**](#interoperability-and-compliance-considerations)
 
-4. [**References**](#references)
+    4.1. [The Resource and Audience Parameters](#the-resource-and-audience-parameters)
 
-    4.1. [Normative References](#normative-references)
+5. [**References**](#references)
 
-    4.2. [Informational References](#informational-references)
+    5.1. [Normative References](#normative-references)
+
+    5.2. [Informational References](#informational-references)
 
 
 ----
@@ -193,11 +199,12 @@ A protected resource that needs to act as a client in order to call another prot
 The token exchange request MUST include:
 
 - `grant_type` with the value `urn:ietf:params:oauth:grant-type:token-exchange`.
+
 - `subject_token` containing the inbound access token.
+
 - `subject_token_type` with the value `urn:ietf:params:oauth:token-type:access_token`.
-- A target indicator: either
-  - `resource` (as defined by \[[RFC8707](#rfc8707)\]) identifying the downstream protected resource, or
-  - `audience` (as defined by \[[RFC8693](#rfc8693)\]) identifying the downstream protected resource.
+
+- A target indicator identifying the downstream protected resource, either `resource` or `audience`. See [Section 4.1](#the-resource-and-audience-parameters) for further requirements.<br/><br/>If a `scope` value is provided from which the authorization server can deduce the protected resource, the target indicator MAY be omitted.
 
 Clients SHOULD include:
 
@@ -207,11 +214,11 @@ Clients MAY include:
 
 - `scope` if specific scopes are required by the downstream protected resource. Any requested scopes MUST have been consented to by the user in the original authorization and MUST NOT exceed what was directly or indirectly authorized.
 
-Unless overridden by local policy, the target indicator (`resource` or `audience`) MUST be the Resource Identifier of the target (protected resource). See Sections 4.3 and 7.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
-
 Multiple `resource` or `audience` parameters MAY be included to indicate the intended use of the resulting access token at multiple protected resources, or as stated in Section 6.1.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\], to support alternative representations of a protected resource as audience values.
 
 Client authentication at the token endpoint MUST follow the requirements given in \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
+
+> **Servers supporting multiple profiles.** An authorization server deployment may support token exchange both within its own domain (as described in this section) and in other scenarios that involve different domains (described in [Section 3](#accessing-protected-resources-in-other-domains)). In such cases, the `requested_token_type` parameter MUST be used to distinguish which profile the client is requesting. When `requested_token_type` is `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request according to this section and issue an access token intended for the indicated protected resource(s). When `requested_token_type` is `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request according to the rules specified in [Section 3](#accessing-protected-resources-in-other-domains) and issue a JWT authorization grant for use at another authorization server. If the parameter is omitted and the server cannot unambiguously determine the intended profile from context, it MUST reject the request with `invalid_request`.
 
 <a name="2-3-1-processing-requirements"></a>
 #### 2.3.1. Processing Requirements
@@ -219,19 +226,33 @@ Client authentication at the token endpoint MUST follow the requirements given i
 When processing a token exchange request, the authorization server MUST:
 
 - Validate the inbound access token as if it were presented directly to a protected resource (including expiry, revocation, audience, and signature validation).
+
 - Ensure the inbound access token:
+
   - Was issued by the same authorization server.
+  
   - Contains a `sub` claim identifying the end-user.
+  
   - Contains a `client_id` claim identifying the original client application.
+  
   - Has the requesting entity as its intended audience.
+  
 - Reject the request if the inbound access token was obtained through the client credentials grant, since such tokens lack user identity and cannot support identity chaining.
+
 - Verify that the requesting entity is authorized to perform token exchange.
-- Enforce that at least one target indicator (`resource` or `audience`) is present.
+
+- Enforce that at least one target indicator (`resource` or `audience`) is present, unless a `scope` value is provided from which the authorization server can deduce the target service.
+
   - If neither is present, the request MUST be rejected with `invalid_request`.
+  
   - If multiple values are present, the authorization server MUST process them according to local policy and the requirements in \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] (for example, supporting multiple audiences or alternative identifiers for the same resource as described in Section 6.1.1).
+
 - Verify that each requested target corresponds to a registered downstream protected resource.
+
 - Verify that any requested `scope` is consistent with what was originally authorized by the user. Scopes that have not been directly or indirectly consented to MUST be rejected.
+
 - If `requested_token_type` is omitted, issue an access token.
+
 - If `requested_token_type` is present with any other value than `urn:ietf:params:oauth:token-type:access_token`, reject the request with `invalid_request`.
 
 <a name="2-4-token-exchange-response"></a>
@@ -539,7 +560,7 @@ The sequence diagram above describes a token exchange operation that enables an 
 
 6. The application (client) in domain A then uses the received JWT authorization grant in a token request to the authorization server in domain B. This is done according to the authorization grant processing requirements defined in \[[RFC7523](#rfc7523)\]. See [Section 3.4.1](#access-token-request-according-to-rfc7523).
 
-7. The authorization server in domain B processes the request according to [Section 3.4.2](#processing-of-jwt-authorization-grant) and issues an access token that can be used to access the protected resource in domain B. See [Section 3.4.3](#requirements-for-issued-access-token).
+7. The authorization server in domain B processes the request according to [Section 3.4.2](#processing-of-jwt-authorization-grant) and issues an access token that can be used to access the protected resource in domain B. See [Section 3.4.3](#3-4-3-token-response).
 
 Steps 8–10 follow normal OAuth 2.0 access token usage: the client provides the access token in the request to the protected resource, which validates it before granting access and returning a response.
 
@@ -598,6 +619,12 @@ How these relationships are established, and the requirements for trust, are out
 
 However, the minimum requirements for establishing the cross-domain use case are as follows:
 
+- The authorization server in the originating domain MUST support OAuth 2.0 Token Exchange as defined in \[[RFC8693](#rfc8693)\] and as profiled by this specification.
+
+- The authorization server in the target domain MUST support JWT authorization grants as defined in \[[RFC7523](#rfc7523)\] and as profiled by this specification.
+
+- The authorization server in the originating domain MUST NOT assume that the authorization server in the target domain supports OAuth 2.0 Token Exchange. Authorization grants issued for cross-domain use therefore MUST NOT include constructs specific to \[[RFC8693](#rfc8693)\].
+
 - The key used by the authorization server in the originating domain MUST be known to the authorization server in the target domain.
 
 - The issuer identifier for the authorization server in the originating domain MUST be known to the authorization server in the target domain and tied to the corresponding key.
@@ -608,50 +635,242 @@ However, the minimum requirements for establishing the cross-domain use case are
     
     - An OAuth 2.0 entity in the originating domain MAY be named or identified differently in the target domain. In such cases, the authorization server in the originating domain MUST be aware of both identities when issuing the authorization grant JWT.
 
-Also, there is no guarantee that the scopes used in the target domain have any meaning in the originating domain. Therefore, the authorization servers may need to maintain mappings of scopes and other rights, and define how to apply these control mechanisms when managing authorization across domain boundaries. See [Section 3.5](#additional-features-and-advanced-topics) below.
+Also, there is no guarantee that the scopes used in the target domain have any meaning in the originating domain. Therefore, the authorization servers may need to maintain mappings of scopes and other rights, and define how to apply these control mechanisms when managing authorization across domain boundaries. See [Section 3.5.1](#scope-mappings-across-domains) below.
 
 <a name="3-3-token-exchange"></a>
 ### 3.3. Token Exchange
 
+Token exchange across domains differs from the intra-domain case in Section 2: the output is not an access token for the target protected resource, but an authorization grant in the form of a signed JWT that the client presents to the authorization server in the target domain to obtain an access token. The authorization server in the originating domain acts as an STS as per \[[RFC8693](#rfc8693)\] and issues a JWT authorization grant suitable for use with the JWT bearer authorization grant defined in \[[RFC7523](#rfc7523)\].
+
+Under this profile, the authorization server in the originating domain MUST issue a short-lived, one-time-use JWT that attests to the delegating user and the requesting client, and that is explicitly targeted at the authorization server in the target domain.
+
 <a name="3-3-1-token-exchange-request"></a>
 #### 3.3.1. Token Exchange Request
+
+A client in the originating domain (or a protected resource acting as a client) MUST call the originating authorization server’s token endpoint with a token exchange request conformant to \[[RFC8693](#rfc8693)] with the following profile requirements:
+
+- The request MUST include:
+
+  - `grant_type` with a value of `urn:ietf:params:oauth:grant-type:token-exchange`.
+  
+  - `subject_token` containing an inbound token issued by the originating authorization server (see [Section 3.3.2](#3-3-2-inbound-token-requirements)).
+  
+  - `subject_token_type` indicating the type of `subject_token`:
+      - `urn:ietf:params:oauth:token-type:access_token` for an access token, or
+      - `urn:ietf:params:oauth:token-type:refresh_token` for a refresh token.
+
+  - A target authorization server indicator identifying the authorization server in the target domain. The client MUST supply one of `audience` and `resource`. See [Section 4.1](#the-resource-and-audience-parameters) for further requirements.
+  
+- The client MAY include additional `resource` or `audience` values denoting the intended protected resource(s) in the target domain. These values are advisory to the originating authorization server and are intended to be conveyed to the target authorization server inside the JWT authorization grant.
+      
+- The client SHOULD include `requested_token_type` with a value of `urn:ietf:params:oauth:token-type:jwt` to explicitly request a JWT authorization grant as defined in \[[RFC7523](#rfc7523)\].
+
+- The client MAY include `scope` to indicate the desired scopes to be used when the target authorization server later issues an access token. The originating authorization server MUST treat these values as a request and MUST NOT assert target-domain authorization beyond what is covered by configured scope mappings (see [Section 3.5.1](#scope-mappings-across-domains)).
+
+Client authentication at the token endpoint MUST follow \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. If `private_key_jwt` is used, the `iss` and `sub` of the client assertion MUST equal the client’s identifier registered at the originating authorization server.
+
+> **For servers supporting both use cases.** An authorization server that supports both the intra-domain exchange in [Section 2](#protected-resource-acting-as-an-client) and the cross-domain exchange in this section MUST use the `requested_token_type` parameter to disambiguate the requested behaviour:
+
+> If `requested_token_type` is set to `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request under the rules of [Section 2](#protected-resource-acting-as-an-client), and if `requested_token_type` is set to `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request under the rules of this section.
+
+> Clients SHOULD always supply `requested_token_type`. If `requested_token_type` is omitted, the server MAY infer intent from the target indicator, where the cross-domain case will be chosen if the target identifies an authorization server, and the intra-domain case will be chosen if the target identifies a protected resource within the same domain.
+
+> If the intent cannot be determined unambiguously, the server MUST reject the request with `invalid_request`.
 
 <a name="3-3-2-inbound-token-requirements"></a>
 #### 3.3.2. Inbound Token Requirements
 
+The `subject_token` used as input to token exchange:
+
+- MUST be either an access token or a refresh token issued by the originating authorization server.
+
+- MUST be valid, not expired, and not revoked at the time of processing.
+
+- MUST be bound to a user (resource owner). Tokens obtained via the client credentials grant MUST NOT be accepted.
+
+- MUST have been issued with a scope (or other authorization attribute) that confers the right to perform cross-domain token exchange. The specific scope name is deployment specific; nevertheless, the originating authorization server MUST enforce that the inbound token conveys this right.
+
+- SHOULD identify the requesting client (e.g., via a `client_id` claim in a JWT access token as per \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]).
+
 <a name="3-3-3-processing-requirements"></a>
 #### 3.3.3. Processing Requirements
+
+When the originating authorization server receives a conformant token exchange request, it MUST:
+
+1. Validate the `subject_token` as if presented to a protected resource, including signature, issuer, expiry, and revocation checks.
+
+2. Verify that the `subject_token` is user-bound and was issued with the right to perform cross-domain token exchange ([Section 3.3.2](#3-3-2-inbound-token-requirements)). If not, the request MUST be rejected with `invalid_scope`.
+
+3. Authenticate the client and verify it is authorized to request cross-domain token exchange for the indicated target authorization server.
+
+4. Verify that the target authorization server indicated by `audience`/`resource` is configured as a trusted peer and that key material and issuer identifiers are established as per [Section 3.2.1](#domain-trust-relationships-and-prerequisites). If not, the request MUST be rejected with `invalid_target` or `unauthorized_client`.
+
+5. Determine the intended protected resource(s) and scope(s) for use in the target domain based on any `resource`/`audience` parameters referring to target-domain APIs supplied by the client, and locally configured scope/resource mappings ([Section 3.5.1](#scope-mappings-across-domains)).
+
+If the request is invalid, the server MUST respond with an error per \[[RFC8693](#rfc8693)\]. Where applicable, the following errors SHOULD be used: `invalid_request`, `invalid_scope`, `unauthorized_client`, `invalid_target`, and `server_error`.
 
 <a name="token-exchange-response-and-jwt-contents"></a>
 #### 3.3.4. Token Exchange Response and JWT Contents
 
+The token exchange response MUST be a JSON object as defined by \[[RFC8693](#rfc8693)\] with these profile requirements:
+
+- The JWT authorization grant MUST be returned in the `access_token` member.
+
+- `issued_token_type` MUST be `urn:ietf:params:oauth:token-type:jwt`.
+
+- `token_type` MUST be included and set to `N_A`. The JWT authorization grant is not a bearer token usable at a resource server.
+
+- `expires_in` SHOULD be included and reflect the remaining lifetime of the JWT authorization grant.
+
+- If scope values intended for the target domain are determined, the response MAY include `scope`. Such values are advisory to the target authorization server.
+
+The JWT returned in `access_token` MUST comply with Section 3 of \[[RFC7523](#rfc7523)\] and this profile.
+
+- `iss` MUST be the issuer identifier of the originating authorization server.
+
+- `sub` MUST be the end-user identifier, chained from the inbound token, or a transcription of the identity according to [Section 3.5.2](#transcription-of-user-identity-claims).
+
+- `aud` MUST be set to the issuer identifier of the target authorization server.
+
+  - An additional audience value containing the token endpoint URL of the target authorization server MAY be included to accommodate different interpretations of how audience values are handled.
+
+- `jti` MUST be present and unique for each issuance.
+
+- `exp` MUST be included. The `iat` and `nbf` claims SHOULD also be included to support replay protection and precise validity handling. The validity period MUST be short. As an example, deployments often use no more than 5 minutes.
+
+- `client_id` MUST identify the requesting client as registered at the target authorization server.
+
+    - If the client has a different identifier in the originating domain, that identifier SHOULD appear as the first-level `sub` inside `act`, preserving traceability without affecting authorization.
+
+- `act` SHOULD be included to represent the chain of actors as defined in \[[RFC8693](#rfc8693)\]. The first-level `sub` under `act` SHOULD identify the client as known in the originating domain. Additional nested actors from earlier hops SHOULD also be preserved.
+
+     - The contents of `act` MUST NOT be used for authorization decisions. It is only for accountability and traceability.
+
+- Authentication context. If present in the inbound token, `acr`, `amr`, `auth_time` and similar claims MUST be copied into the JWT authorization grant.
+
+- If the request included target-domain API indicators (`resource` or `audience`), these MUST be represented as `resource` claims in the JWT. 
+
+    - The `audience` claim is specific to \[[RFC8693](#rfc8693)\], and no assumption about OAuth 2.0 Token Exchange-support must be made. 
+
+- Requested `scope` values intended for the target domain SHOULD be carried as a `scope` claim string.
+
+- Additional claims MAY be included based on local policies or bilateral agreements between the originating and target domains.
+
+The JWT authorization grant MUST be signed by the originating authorization server using a key that the target authorization server has associated with the originating issuer ([Section 3.2.1](#domain-trust-relationships-and-prerequisites)). The JWT authorization grant MAY be encrypted if both domains have explicitly configured encryption keys and policies.
+
 <a name="authorization-grant-requirements"></a>
 ### 3.4. Authorization Grant Requirements
+
+This section profiles how the client uses the JWT authorization grant at the target authorization server, and how the target authorization server processes it and issues an access token.
 
 <a name="access-token-request-according-to-rfc7523"></a>
 #### 3.4.1. Access Token Request According to RFC7523
 
+The HTTP request to the target authorization server’s token endpoint MUST follow Section 2.1 of \[[RFC7523](#rfc7523)\] with the following clarifications and additions.
+
+- The client MUST present the JWT authorization grant to the token endpoint of the target authorization server using the JWT bearer grant defined in \[[RFC7523](#rfc7523)\].
+
+  - `grant_type` is set to `urn:ietf:params:oauth:grant-type:jwt-bearer`.
+  
+  - `assertion` is set to the JWT authorization grant produced according to the requirements stated in [Section 3.3.4](#token-exchange-response-and-jwt-contents).
+
+- The client MUST authenticate to the target token endpoint according to \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. If `private_key_jwt` is used, the `iss` and `sub` of the client assertion MUST equal the client’s identifier as registered at the target authorization server. This identifier MAY differ from the identifier used in the originating domain.
+
+- The client MAY include `scope` to request specific scopes in the target domain.
+
+- The client MAY include a `resource` parameter to indicate the intended protected resource in the target domain, if the target authorization server supports \[[RFC8707](#rfc8707)\]. If used, the requirements in Section 7.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] MUST be followed.
+
+    - The `audience` parameter MUST NOT be used in JWT bearer grant requests (it is a special-purpose parameter for OAuth 2.0 Token Exchange).
+
 <a name="processing-of-jwt-authorization-grant"></a>
 #### 3.4.2. Processing of JWT Authorization Grant
 
-<a name="requirements-for-issued-access-token"></a>
-#### 3.4.3. Requirements for Issued Access Token
+When the target authorization server receives a JWT bearer grant request as described in [Section 3.4.1](#access-token-request-according-to-rfc7523), it MUST process the request as follows:
+
+1. Client authentication &ndash; The client MUST be authenticated in accordance with Section 8.3 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
+
+2. Assertion validation &ndash; The server MUST validate the JWT assertion in accordance with \[[RFC7523](#rfc7523)\]. This includes verifying the digital signature, issuer, subject, audience, `jti` (for replay protection), and the `iat`, `nbf`, and `exp` claims. The issuer MUST correspond to a trusted originating authorization server, and the signing key MUST be bound to that issuer as described in [Section 3.2.1](#domain-trust-relationships-and-prerequisites).
+
+3. Scope and resource determination &ndash; The server MUST determine the scopes and target resources for the token to be issued. This decision MUST take into account any `resource` and `scope` parameters in the request, values carried in the assertion, and locally configured scope or resource mappings as described in [Section 3.5.1](#scope-mappings-across-domains).
+
+4. Subject determination &ndash; The server MUST determine the end-user identifier to be carried forward from the assertion for identity chaining. If needed, user identity transcription MAY be applied as described in [Section 3.5.2](#transcription-of-user-identity-claims).
+
+5. Client identity determination &ndash; The server MUST determine the client identifier as registered in the target domain for the requesting entity.
+
+6. Actor chain handling &ndash; If the assertion contains an `act` claim, all actor values from the assertion MUST be preserved. The target authorization server MAY add an additional actor to reflect the registered client in the target domain. The `act` claim MUST NOT be used for authorization decisions.
+
+7. Policy enforcement &ndash; The server MUST enforce local policy, including user consent, scope minimisation, and resource restrictions. If requested scopes cannot be satisfied, the request MUST be rejected with the `invalid_scope` error.
+
+8. Issuance decision &ndash; After successful processing, the server MUST issue an access token and return a response as defined in [Section 3.4.3](#3-4-3-token-response).
+
+If any of the above checks fail, the authorization server MUST reject the request and return an error response in accordance with \[[RFC7523](#rfc7523)\] and \[[RFC6749](#rfc6749)\].
+
+<a name="3-4-3-token-response"></a>
+#### 3.4.3. Token Response
+
+The access token response MUST follow \[[RFC6749](#rfc6749)\] and \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. The access token issued by the target authorization server MUST follow the requirements stated in Section 6.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\], with the following additions and clarifications:
+
+- If the JWT authorization grant contained an `act` claim, this claim MAY be included in the resulting access token. If so, all actor values MUST be preserved in the issued access token. The target authorization server MAY add an additional actor to represent the registered client in the target domain.
+
+- Proof-of-possession policies in the target domain MUST be observed. If DPoP per \[[RFC9449](#rfc9449)\] is required, the access token MUST be bound accordingly and MUST NOT be issued as a simple bearer token.
+
+Furthermore, the token response MUST NOT include a refresh token unless explicitly permitted by target-domain policy. If a refresh token is issued, its use MUST remain confined to the target domain.
 
 <a name="additional-features-and-advanced-topics"></a>
 ### 3.5. Additional Features and Advanced Topics
 
+<a name="scope-mapping-across-domains"></a>
+#### 3.5.1. Scope Mapping Across Domains
+
+Scopes are often domain specific. The right to obtain a cross-domain JWT authorization grant in the originating domain MUST be controlled by a dedicated scope (or equivalent authorization attribute). The scopes used in the target domain MAY be different. Deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. The originating authorization server MUST NOT assert target-domain authorizations beyond what mapping rules allow. The target authorization server MUST evaluate the mapped request according to local policy and MAY further restrict scopes.
+
+<a name="transcription-of-user-identity-claims"></a>
+#### 3.5.2. Transcription of User Identity Claims
+
+Subject identifiers or other relevant user identity claims may differ between domains. For example, a user may be identified differently in the originating domain than in the target domain. In such cases, either the authorization server in the originating domain or the authorization server in the target domain may perform a transcription between identities. Which server performs this depends on which party has knowledge of the required mappings.
+
+In cross-domain use cases, it may also be necessary to prevent the disclosure of a user’s actual identity in the target domain. In such cases, it may be sufficient for the protected resource to know only that the user originates from the originating domain. The authorization server in the originating domain is responsible for replacing the actual user identity (for example, the `sub` claim) with a pseudonymous value. If this feature is used, the originating authorization server MUST be able to map the pseudonym back to the actual identity value, for example for out-of-band investigations of potential attacks or fraud.
+
 <a name="3-6-examples"></a>
 ### 3.6. Examples
 
+> TODO
+
+<a name="interoperability-and-compliance-considerations"></a>
+## 4. Interoperability and Compliance Considerations
+
+<a name="the-resource-and-audience-parameters"></a>
+### 4.1. The Resource and Audience Parameters
+
+The `resource` parameter, as defined in \[[RFC8707](#rfc8707)\], and the `audience` parameter, as defined in \[[RFC8693](#rfc8693)\], are two separate but related ways of indicating the target service for a token exchange operation.
+
+\[[RFC8693](#rfc8693)\] states that the `resource` parameter should be used when the client does not know the logical name of the target service, and that the `audience` parameter should be used when such a logical name is known to the client.
+
+To promote interoperability, this profile specifies the following requirements:
+
+- If the `resource` parameter is used, the requirements from Section 7.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] MUST be followed.
+
+- If the `audience` parameter is used to indicate a protected resource, the Resource Identifier of the resource as defined in Section 4.3 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] MUST be used.
+
+- If the `audience` parameter is used to indicate an authorization server (as in the use case defined in [Section 3](#accessing-protected-resources-in-other-domains)), the issuer identifier of the authorization server MUST be used.
+
+- An entity compliant with this profile MUST NOT use both the `resource` and `audience` parameters in the same request.
+
+- If a token exchange request includes a `scope` value from which the authorization server can deduce the target service, both the `resource` and `audience` parameters MAY be omitted.
+
 <a name="references"></a>
-## 4. References
+## 5. References
 
 <a name="normative-references"></a>
-### 4.1. Normative References
+### 5.1. Normative References
 
 <a name="rfc2119"></a>
 **\[RFC2119\]**
 > [Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", March 1997](https://www.ietf.org/rfc/rfc2119.txt).
+
+<a name="rfc6749"></a>
+**\[RFC6749\]**
+> [Hardt, D., "The OAuth 2.0 Authorization Framework", RFC 6749, DOI 10.17487/RFC6749, October 2012](https://tools.ietf.org/html/rfc6749).
 
 <a name="rfc7523"></a>
 **\[RFC7523\]**
@@ -674,7 +893,7 @@ Also, there is no guarantee that the scopes used in the target domain have any m
 > [Ena OAuth 2.0 Interoperability Profile](https://github.com/ena-infrastructure/specifications/blob/main/ena-oauth2-profile.md)
 
 <a name="informational-references"></a>
-### 4.2. Informational References
+### 5.2. Informational References
 
 <a name="draft-id-chaining"></a>
 **\[Draft.ID-Chaining\]**
