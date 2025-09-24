@@ -98,7 +98,7 @@ Over the years, numerous extensions and features have been introduced, making â€
     
 7. [**Optional Extensions**](#optional-extensions)
 
-    . [The Resource Parameter](#the-resource-parameter)
+    7.1. [The Resource Parameter](#the-resource-parameter)
 
     7.2. [JAR &ndash; JWT-Secured Authorization Requests](#jar-jwt-secured-authorization-requests)
     
