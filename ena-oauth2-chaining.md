@@ -66,9 +66,19 @@ This document specifies solutions for chaining OAuth 2.0 identity and authorizat
 
     3.6. [Examples](#3-6-examples)
     
-4. [**Interoperability and Compliance Considerations**](#interoperability-and-compliance-considerations)
+    3.6.1. [Application in Originating Domain Calling a Protected Resource in Target Domain](#application-in-originating-domain-calling-a-protected-resource-in-target-domain)
+
+    3.6.2. [Protected Resource in Originating Domain Acting as Client Towards Target Domain](#protected-resource-in-originating-domain-acting-as-client-towards-target-domain)
+    
+4. [**Additional Token Exchange Requirements and Considerations**](#additional-token-exchange-requirements-and-considerations)
 
     4.1. [The Resource and Audience Parameters](#the-resource-and-audience-parameters)
+    
+    4.2. [Subject Token Requirements and Considerations](#subject-token-requirements-and-considerations)
+
+    4.2.1. [Issuing a Token Usable for Token Exchange](#issuing-a-token-usable-for-token-exchange)
+    
+    4.2.2. [Processing Requirements for a Subject Token](#processing-requirements-for-a-subject-token)
 
 5. [**References**](#references)
 
@@ -225,19 +235,7 @@ Client authentication at the token endpoint MUST follow the requirements given i
 
 When processing a token exchange request, the authorization server MUST:
 
-- Validate the inbound access token as if it were presented directly to a protected resource (including expiry, revocation, audience, and signature validation).
-
-- Ensure the inbound access token:
-
-  - Was issued by the same authorization server.
-  
-  - Contains a `sub` claim identifying the end-user.
-  
-  - Contains a `client_id` claim identifying the original client application.
-  
-  - Has the requesting entity as its intended audience.
-  
-- Reject the request if the inbound access token was obtained through the client credentials grant, since such tokens lack user identity and cannot support identity chaining.
+- Validate the inbound access token according to [Section 4.2.2, Processing Requirements for a Subject Token](#processing-requirements-for-a-subject-token).
 
 - Verify that the requesting entity is authorized to perform token exchange.
 
@@ -682,22 +680,22 @@ Client authentication at the token endpoint MUST follow \[[Ena.OAuth2.Profile](#
 
 The `subject_token` used as input to token exchange:
 
-- MUST be either an access token or a refresh token issued by the originating authorization server.
+- MUST be either an access token or a refresh token issued by the originating authorization server to the requested client.
 
-- MUST be valid, not expired, and not revoked at the time of processing.
+- MUST be valid, not expired, and not revoked at the time of the request.
 
-- MUST be bound to a user (resource owner). Tokens obtained via the client credentials grant MUST NOT be accepted.
+- MUST be bound to a user (resource owner).
 
 - MUST have been issued with a scope (or other authorization attribute) that confers the right to perform cross-domain token exchange. The specific scope name is deployment specific; nevertheless, the originating authorization server MUST enforce that the inbound token conveys this right.
 
-- SHOULD identify the requesting client (e.g., via a `client_id` claim in a JWT access token as per \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]).
+A requesting entity MUST NOT include a token that does not fulfil all the above requirements in a token exchange request.
 
 <a name="3-3-3-processing-requirements"></a>
 #### 3.3.3. Processing Requirements
 
 When the originating authorization server receives a conformant token exchange request, it MUST:
 
-1. Validate the `subject_token` as if presented to a protected resource, including signature, issuer, expiry, and revocation checks.
+1. Validate the `subject_token` according to [Section 4.2.2, Processing Requirements for a Subject Token](#processing-requirements-for-a-subject-token).
 
 2. Verify that the `subject_token` is user-bound and was issued with the right to perform cross-domain token exchange ([Section 3.3.2](#3-3-2-inbound-token-requirements)). If not, the request MUST be rejected with `invalid_scope`.
 
@@ -834,10 +832,33 @@ In cross-domain use cases, it may also be necessary to prevent the disclosure of
 <a name="3-6-examples"></a>
 ### 3.6. Examples
 
+This section provides non-normative, end-to-end illustrations of cross-domain exchange, aligned with the "Ena OAuth 2.0 Interoperability Profile", \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
+
+All examples use the following identifiers:
+
+- Authorization server in domain A (originating domain): `https://as.domain-a.com`
+- Application/client in domain A: `https://app.domain-a.com`
+- Protected resource in domain A: `https://api.domain-a.com`
+- Authorization server in domain B (target domain): `https://as.domain-b.com`
+- Protected resource in domain B: `https://api.domain-b.com`
+- User identity (subject): `user-1234`
+
+For readability, long values are folded and signatures are abbreviated.
+
+Note on scopes across domains: In these examples the originating domain uses scope `a-api-read` and the target domain uses scope `b-api-read`. This reflects that scopes are domain specific and require mapping as described in [Section 3.5.1](#scope-mappings-across-domains).
+
+<a name="application-in-originating-domain-calling-a-protected-resource-in-target-domain"></a>
+#### 3.6.1. Application in Originating Domain Calling a Protected Resource in Target Domain
+
 > TODO
 
-<a name="interoperability-and-compliance-considerations"></a>
-## 4. Interoperability and Compliance Considerations
+<a name="protected-resource-in-originating-domain-acting-as-client-towards-target-domain"></a>
+#### 3.6.2. Protected Resource in Originating Domain Acting as Client Towards Target Domain
+
+> TODO
+
+<a name="additional-token-exchange-requirements-and-considerations"></a>
+## 4. Additional Token Exchange Requirements and Considerations
 
 <a name="the-resource-and-audience-parameters"></a>
 ### 4.1. The Resource and Audience Parameters
@@ -857,6 +878,75 @@ To promote interoperability, this profile specifies the following requirements:
 - An entity compliant with this profile MUST NOT use both the `resource` and `audience` parameters in the same request.
 
 - If a token exchange request includes a `scope` value from which the authorization server can deduce the target service, both the `resource` and `audience` parameters MAY be omitted.
+
+<a name="subject-token-requirements-and-considerations"></a>
+### 4.2. Subject Token Requirements and Considerations
+
+The token supplied as a `subject_token` in a token exchange request, for the use cases profiled in this specification, is either an access token or a refresh token.
+
+This section defines the requirements for issuing access tokens and refresh tokens that may later be used in a token exchange request, as well as the requirements that an authorization server functioning as a *Security Token Service* MUST apply when processing such a request.
+
+<a name="issuing-a-token-usable-for-token-exchange"></a>
+#### 4.2.1. Issuing a Token Usable for Token Exchange
+
+This section specifies requirements and considerations for authorization servers that issue tokens which may later be used as input in a token exchange request to the same authorization server.
+
+- An authorization server issuing an access token intended for later use in a token exchange request SHOULD add its own issuer identifier among the audience (`aud`) values of the access token.  
+  - If the sole purpose of the access token is to be used in a token exchange, for example in cross-domain scenarios, the authorization server’s issuer identifier MUST be included in the `aud` claim as the only value.
+
+- An authorization server issuing an access token for later use in a token exchange request MAY include the `may_act` claim, as defined in Section 4.4 of \[[RFC8693](#rfc8693)\], where this claim contains a `sub` claim equal to the client requesting the access token (`client_id`).
+
+- An authorization server issuing an access token for later use in a token exchange request MAY add a dedicated scope value representing this right among the `scope` values of the access token.
+
+- It is RECOMMENDED that an authorization server use either the `may_act` claim or the dedicated scope approach when preparing an access token for future use in token exchange, but not both.
+
+- For the access token requirements above, the following MUST hold: If a refresh token is issued together with an access token, the representation of the access token MUST also be valid for the corresponding refresh token.
+
+Example:
+
+```json
+{
+  "aud": ["https://client.example.com", "https://as.client.example"],
+  "iss": "https://as.example.com",
+  "sub": "user-1234",
+  "client_id": "https://client.example.com",
+  "may_act": {
+    "sub": "https://client.example.com"
+  },
+  "scope": "api-read exchange-right",
+  "jti": "8ujkdsna7",
+  "nbf": 1696500000,
+  "iat": 1696500000,
+  "exp": 1696503600
+}
+```
+
+<a name="processing-requirements-for-a-subject-token"></a>
+#### 4.2.2. Processing Requirements for a Subject Token
+
+This section specifies the requirements for how an authorization server processing a token exchange request MUST verify the subject token (`subject_token`) provided in the request.
+
+- An access token that is not signed in accordance with the requirements in Section 6.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] MUST be rejected.
+
+- An access token that was not issued by the processing authorization server MUST be rejected.
+
+- The authorization server MUST verify that the token (access or refresh) has not expired.
+
+- The authorization server MUST verify that the token has not been revoked or otherwise invalidated.
+
+- The token MUST contain a `client_id` claim whose value matches the requesting entity's client identifier. If not, the request MUST be rejected.
+
+- An access token obtained through the client credentials grant, or any other grant that does not involve a user, MUST be rejected. Such tokens lack user identity and therefore cannot support identity chaining.
+
+- If the authorization server issues tokens with its own issuer identifier among the audience values (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), the token MUST be rejected if that issuer identifier does not appear in the `aud` claim.
+
+- If the authorization server issues tokens with a `may_act` claim (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), the `sub` claim inside `may_act` MUST equal the requesting entity's client identifier. Otherwise, the request MUST be rejected.
+
+- If the authorization server issues tokens with a dedicated scope signalling the right to perform token exchange (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), and this scope is absent from the token, the request MUST be rejected.
+
+- If a specific scope is required for the token exchange operation, and this scope is absent from the token, the request MUST be rejected.
+
+Note: When a refresh token is supplied as a `subject_token`, its underlying representation, based on the original authorization, is verified against the requirements above.
 
 <a name="references"></a>
 ## 5. References
