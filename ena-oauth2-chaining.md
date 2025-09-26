@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-09-24
+### Version: 1.0 - draft 01 - 2025-09-26
 
 ## Abstract
 
@@ -896,24 +896,20 @@ This section specifies requirements and considerations for authorization servers
 
 - An authorization server issuing an access token for later use in a token exchange request MAY include the `may_act` claim, as defined in Section 4.4 of \[[RFC8693](#rfc8693)\], where this claim contains a `sub` claim equal to the client requesting the access token (`client_id`).
 
-- An authorization server issuing an access token for later use in a token exchange request MAY add a dedicated scope value representing this right among the `scope` values of the access token.
-
-- It is RECOMMENDED that an authorization server use either the `may_act` claim or the dedicated scope approach when preparing an access token for future use in token exchange, but not both.
-
 - For the access token requirements above, the following MUST hold: If a refresh token is issued together with an access token, the representation of the access token MUST also be valid for the corresponding refresh token.
 
 Example:
 
 ```json
 {
-  "aud": ["https://client.example.com", "https://as.client.example"],
+  "aud": ["https://api.example.com", "https://as.example.com"],
   "iss": "https://as.example.com",
   "sub": "user-1234",
   "client_id": "https://client.example.com",
   "may_act": {
     "sub": "https://client.example.com"
   },
-  "scope": "api-read exchange-right",
+  "scope": "api-read",
   "jti": "8ujkdsna7",
   "nbf": 1696500000,
   "iat": 1696500000,
@@ -941,10 +937,6 @@ This section specifies the requirements for how an authorization server processi
 - If the authorization server issues tokens with its own issuer identifier among the audience values (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), the token MUST be rejected if that issuer identifier does not appear in the `aud` claim.
 
 - If the authorization server issues tokens with a `may_act` claim (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), the `sub` claim inside `may_act` MUST equal the requesting entity's client identifier. Otherwise, the request MUST be rejected.
-
-- If the authorization server issues tokens with a dedicated scope signalling the right to perform token exchange (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), and this scope is absent from the token, the request MUST be rejected.
-
-- If a specific scope is required for the token exchange operation, and this scope is absent from the token, the request MUST be rejected.
 
 Note: When a refresh token is supplied as a `subject_token`, its underlying representation, based on the original authorization, is verified against the requirements above.
 
