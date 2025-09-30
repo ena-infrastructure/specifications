@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-09-26
+### Version: 1.0 - draft 01 - 2025-09-30
 
 ## Abstract
 
@@ -60,7 +60,7 @@ This document specifies solutions for chaining OAuth 2.0 identity and authorizat
 
     3.5. [Additional Features and Advanced Topics](#additional-features-and-advanced-topics)
     
-    3.5.1. [Scope Mappings Across Domains](#scope-mappings-across-domains)
+    3.5.1. [Scope Mapping Across Domains](#scope-mapping-across-domains)
     
     3.5.2. [Transcription of User Identity Claims](#transcription-of-user-identity-claims)
 
@@ -366,7 +366,7 @@ Access token presented by the application (`https://app.example.com`) to the fir
 ```json
 {
   "iss": "https://as.example.com",
-  "aud": "https://api1.example.com",
+  "aud": ["https://api1.example.com", "https://as.example.com"],
   "sub": "user-1234",
   "acr": "http://id.elegnamnden.se/loa/1.0/loa3",
   "client_id": "https://app.example.com",
@@ -377,6 +377,8 @@ Access token presented by the application (`https://app.example.com`) to the fir
   "exp": 1695379200
 }
 ```
+
+> Note that the authorization server has issued the access token with its own issuer identifier among the `aud` values. See [Section 4.2.1, Issuing a Token Usable for Token Exchange](#issuing-a-token-usable-for-token-exchange).
 
 **Token Exchange Request:**
 
@@ -625,7 +627,9 @@ However, the minimum requirements for establishing the cross-domain use case are
 
 - The key used by the authorization server in the originating domain MUST be known to the authorization server in the target domain.
 
-- The issuer identifier for the authorization server in the originating domain MUST be known to the authorization server in the target domain and tied to the corresponding key.
+- The issuer identifier of the authorization server in the originating domain MUST be known to the authorization server in the target domain and associated with the correct key and configuration.
+
+- The issuer identifier of the authorization server in the target domain MUST be known to the authorization server in the originating domain and linked to the token exchange configuration for the target domain.
 
 - All entities in the originating domain that may act as clients towards the target domain MUST be registered at the authorization server in the target domain.
 
@@ -663,7 +667,11 @@ A client in the originating domain (or a protected resource acting as a client) 
       
 - The client SHOULD include `requested_token_type` with a value of `urn:ietf:params:oauth:token-type:jwt` to explicitly request a JWT authorization grant as defined in \[[RFC7523](#rfc7523)\].
 
-- The client MAY include `scope` to indicate the desired scopes to be used when the target authorization server later issues an access token. The originating authorization server MUST treat these values as a request and MUST NOT assert target-domain authorization beyond what is covered by configured scope mappings (see [Section 3.5.1](#scope-mappings-across-domains)).
+- The client MAY use the `scope` parameter to specify particular scope(s) for the request.
+
+    - The client MUST NOT request a scope that is higher privileged than the scopes of the presented `subject_token`.
+
+    - If the originating and target domains use different scope models, the scope value(s) given in the `scope` parameter MUST be scopes defined within the originating domain. A scope mapping will be performed later, see [Section 3.5.1](#scope-mapping-across-domains).
 
 Client authentication at the token endpoint MUST follow \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. If `private_key_jwt` is used, the `iss` and `sub` of the client assertion MUST equal the client’s identifier registered at the originating authorization server.
 
@@ -706,6 +714,7 @@ When the originating authorization server receives a conformant token exchange r
 5. Determine the intended protected resource(s) and scope(s) for use in the target domain based on any `resource`/`audience` parameters referring to target-domain APIs supplied by the client, and locally configured scope/resource mappings ([Section 3.5.1](#scope-mappings-across-domains)).
 
 If the request is invalid, the server MUST respond with an error per \[[RFC8693](#rfc8693)\]. Where applicable, the following errors SHOULD be used: `invalid_request`, `invalid_scope`, `unauthorized_client`, `invalid_target`, and `server_error`.
+
 
 <a name="token-exchange-response-and-jwt-contents"></a>
 #### 3.3.4. Token Exchange Response and JWT Contents
@@ -750,7 +759,11 @@ The JWT returned in `access_token` MUST comply with Section 3 of \[[RFC7523](#rf
 
     - The `audience` claim is specific to \[[RFC8693](#rfc8693)\], and no assumption about OAuth 2.0 Token Exchange-support must be made. 
 
-- Requested `scope` values intended for the target domain SHOULD be carried as a `scope` claim string.
+- If scope information needs to be provided, for example, if the originating subject token contains scopes or if scopes are provided in the token exchange request, the `scope` claim MUST be included and contain the scopes that the calling entity is authorized for.
+
+    - The authorization server SHOULD omit scopes that are specific to the originating domain and have no meaning in the cross-domain use case.
+    
+    - Whether the scope values are specific to the originating or the target domain is deployment specific. See [Section 3.5.1](#scope-mapping-across-domains).
 
 - Additional claims MAY be included based on local policies or bilateral agreements between the originating and target domains.
 
@@ -820,7 +833,15 @@ Furthermore, the token response MUST NOT include a refresh token unless explicit
 <a name="scope-mapping-across-domains"></a>
 #### 3.5.1. Scope Mapping Across Domains
 
-Scopes are often domain specific. The right to obtain a cross-domain JWT authorization grant in the originating domain MUST be controlled by a dedicated scope (or equivalent authorization attribute). The scopes used in the target domain MAY be different. Deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. The originating authorization server MUST NOT assert target-domain authorizations beyond what mapping rules allow. The target authorization server MUST evaluate the mapped request according to local policy and MAY further restrict scopes.
+Scopes are often domain-specific, and this must therefore be taken into account when preparing a call for the cross-domain use case. This section specifies how scopes, both represented in a subject token used during token exchange, and when explicitly requested in a token exchange request, should be processed.
+
+- The right to obtain a cross-domain JWT authorization grant in the originating domain MUST be controlled by scopes or equivalent authorization attributes.
+
+- The scopes used in the target domain MAY be different. In such cases, deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. Whether this mapping is maintained in the originating or target domain is deployment specific.
+
+- The originating authorization server MUST NOT assert target-domain authorizations beyond what mapping rules allow. 
+
+- The target authorization server MUST evaluate the mapped request according to local policy and MAY further restrict scopes.
 
 <a name="transcription-of-user-identity-claims"></a>
 #### 3.5.2. Transcription of User Identity Claims
