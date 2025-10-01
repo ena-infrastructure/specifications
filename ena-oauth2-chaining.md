@@ -871,12 +871,13 @@ Note on scopes across domains: In these examples the originating domain uses sco
 <a name="application-in-originating-domain-calling-a-protected-resource-in-target-domain"></a>
 #### 3.6.1. Application in Originating Domain Calling a Protected Resource in Target Domain
 
-> TODO
+This example illustrates the first sequence diagram in [Section 3.2](#3-2-solution-overview), where an application (client) in domain A makes a cross-domain call to a protected resource in domain B.
 
 <a name="protected-resource-in-originating-domain-acting-as-client-towards-target-domain"></a>
 #### 3.6.2. Protected Resource in Originating Domain Acting as Client Towards Target Domain
 
-> TODO
+This example is similar, but here `https://api.domain-a.com` exchanges the inbound access token for an authorization grant and then requests an access token in domain B.
+
 
 <a name="additional-token-exchange-requirements-and-considerations"></a>
 ## 4. Additional Token Exchange Requirements and Considerations
