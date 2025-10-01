@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-09-30
+### Version: 1.0 - draft 01 - 2025-10-01
 
 ## Abstract
 
@@ -853,12 +853,12 @@ In cross-domain use cases, it may also be necessary to prevent the disclosure of
 <a name="3-6-examples"></a>
 ### 3.6. Examples
 
-This section provides non-normative, end-to-end illustrations of cross-domain exchange, aligned with the "Ena OAuth 2.0 Interoperability Profile", \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
+This section provides non-normative, end-to-end illustrations of cross-domain exchange, aligned with the "Ena OAuth 2.0 Interoperability Profile" \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
 
 All examples use the following identifiers:
 
 - Authorization server in domain A (originating domain): `https://as.domain-a.com`
-- Application/client in domain A: `https://app.domain-a.com`
+- Application (client) in domain A: `https://app.domain-a.com`
 - Protected resource in domain A: `https://api.domain-a.com`
 - Authorization server in domain B (target domain): `https://as.domain-b.com`
 - Protected resource in domain B: `https://api.domain-b.com`
@@ -866,18 +866,195 @@ All examples use the following identifiers:
 
 For readability, long values are folded and signatures are abbreviated.
 
-Note on scopes across domains: In these examples the originating domain uses scope `a-api-read` and the target domain uses scope `b-api-read`. This reflects that scopes are domain specific and require mapping as described in [Section 3.5.1](#scope-mappings-across-domains).
+Note on scopes across domains: In these examples, the originating domain uses the scope `a-api-read` and the target domain uses the scope `b-api-read`. This reflects that scopes are domain-specific and require mapping as described in [Section 3.5.1](#scope-mappings-across-domains).
 
 <a name="application-in-originating-domain-calling-a-protected-resource-in-target-domain"></a>
 #### 3.6.1. Application in Originating Domain Calling a Protected Resource in Target Domain
 
 This example illustrates the first sequence diagram in [Section 3.2](#3-2-solution-overview), where an application (client) in domain A makes a cross-domain call to a protected resource in domain B.
 
+**Inbound Access Token (JWT):**
+
+The access token that the application in domain A has in its possession is shown below.
+
+```json
+{
+  "iss": "https://as.domain-a.com",
+  "aud": ["https://api.domain-a.com", "https://as.domain-a.com"],
+  "sub": "user-1234",
+  "acr": "http://id.elegnamnden.se/loa/1.0/loa3",
+  "client_id": "https://app.domain-a.com",
+  "scope": "a-api-read a-api-write",
+  "jti": "inbound-app-123",
+  "nbf": 1696500000,
+  "iat": 1696500000,
+  "exp": 1696503600
+}
+```
+
+As shown in the JWT, the access token was issued for use at `https://api.domain-a.com` (a protected resource within domain A). The authorization server has also added itself as a valid audience (`https://as.domain-a.com`). See [Section 4.2.1, Issuing a Token Usable for Token Exchange](#issuing-a-token-usable-for-token-exchange).
+
+In this example, the `acr` claim is included to indicate the authentication context under which the subject (user) was authenticated. In a real-life scenario, the access token may contain additional claims representing the user identity and authentication.
+
+It is worth noting that the access token contains two scopes: `a-api-read` and `a-api-write`.
+
+**Token Exchange Request:**
+
+Next, the application needs to make a cross-domain call to domain B, and therefore submits a token exchange request according to [Section 3.3.1](#3-3-1-token-exchange-request) to the authorization server in its own domain.
+
+```
+POST /token HTTP/1.1
+Host: as.domain-a.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange&
+subject_token=eyJhbGciOi...inbound-app-123...&
+subject_token_type=urn:ietf:params:oauth:token-type:access_token&
+audience=https%3A%2F%2Fas.domain-b.com&
+scope=a-api-read&
+client_id=https%3A%2F%2Fapp.domain-a.com&
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&
+client_assertion=eyJhbGciOi...
+```
+
+- The `subject_token` provided is the inbound access token shown above.
+
+- The `audience` parameter is set to the issuer identifier of the authorization server in domain B.
+
+- The `scope` is set to `a-api-read`. This indicates that the application is instructing the authorization server not to include the `a-api-write` scope from the inbound access token in the resulting JWT. *This filtering could also be performed by the authorization server before issuing the JWT.*
+
+- The `client_assertion` contains the `private_key_jwt` assertion that the application uses to authenticate the call.
+
+**Token Exchange Response with JWT Authorization Grant:**
+
+The authorization server in domain A processes the token exchange request according to [Section 3.3.3](#3-3-3-processing-requirements) and, if permitted by the token exchange policy for domain B, issues a JWT authorization grant as specified in [Section 3.3.4](#token-exchange-response-and-jwt-contents).
+
+The response:
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+Pragma: no-cache
+
+{
+  "access_token": "eyJhbGciOi...jwt-authorization-grant...",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_type": "N_A",
+  "expires_in": 300,
+  "scope": "a-api-read"
+}
+```
+
+The decoded JWT authorization grant (the value of the response `access_token` field):
+
+```json
+{
+  "iss": "https://as.domain-a.com",
+  "aud": "https://as.domain-b.com",
+  "sub": "user-1234",
+  "acr": "http://id.elegnamnden.se/loa/1.0/loa3",
+  "client_id": "https://app.domain-a.com",
+  "scope": "a-api-read",
+  "jti": "grant-456",
+  "nbf": 1696500000,
+  "iat": 1696500000,
+  "exp": 1696500300,
+  "act": {
+    "sub": "https://app.domain-a.com"
+  }
+}
+```
+
+- The `sub` and `acr` claims from the initial access token are included in the JWT. Additional claims regarding the user authentication process and user identity may be included in real-life scenarios.
+
+    - Note that the `sub` value is unchanged from the inbound access token. This means that no transcription of user identity claims, as described in [Section 3.5.2](#transcription-of-user-identity-claims), was performed.
+
+- The `scope` claim contains the value `a-api-read`. This means that no scope mapping, as described in [Section 3.5.1](#scope-mapping-across-domains), was performed by authorization server A. In this case, authorization server B must maintain a scope mapping to translate `a-api-read` into a scope value meaningful in domain B.
+
+    - Note: It is also possible for the authorization server in domain B to perform this mapping. Which domain carries out scope mappings is deployment-specific.
+
+- The `scope` claim does not include the `a-api-write` value that was present in the inbound access token. In this example, the application (client) requested only the `a-api-read` scope in the token exchange request. Other reasons why a claim might be removed from the original authorization include that the client is not entitled to use it in cross-domain scenarios, or that the claim has no mapping in the target domain.
+
+- No `resource` parameter is included, since the corresponding token exchange request did not specify any protected resource in domain B.
+
+**Access Token Request to Authorization Server in Domain B:**
+
+Next, the application in domain A acts as an OAuth 2.0 client towards the authorization server in domain A, and sends a token request according to [Section 3.4.1](#access-token-request-according-to-rfc7523), including the JWT authorization grant.
+
+```
+POST /token HTTP/1.1
+Host: as.domain-b.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&
+assertion=eyJhbGciOi...grant-456...&
+scope=b-api-read&
+client_id=https%3A%2F%2Fapp.domain-a.com&
+resource=https%3A%2F%2Fapi.domain-b.com&
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&
+client_assertion=eyJhbGciOi...
+```
+
+- The domain A application (client) requests the scope `b-api-read`, which is a scope value specific to domain B. Whether the client is authorized to request this scope is determined by the authorization server in domain B, based on translating the domain A–specific scopes received in the JWT authorization grant and applying the token exchange policies configured for domain A.
+
+- The domain A application (client) specifies the intended protected resource by supplying its identifier in the `resource` parameter.
+
+**Access Token Response from Authorization Server in Domain B:**
+
+When the authorization server in domain B receives the token request, it processes it according to [Section 3.4.2](#processing-of-jwt-authorization-grant) before issuing a token response containing an access token, as specified in [Section 3.4.3](#3-4-3-token-response).
+
+The token response:
+
+```json
+HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+Pragma: no-cache
+
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImJiLWtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FzLmRvbWFpbi1iLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXBpLmRvbWFpbi1iLmNvbSIsInN1YiI6InVzZXItMTIzNCIsImNsaWVudF9pZCI6Imh0dHBzOi8vYXBwLmRvbWFpbi1hLmNvbSIsInNjb3BlIjoiYi1hcGktcmVhZCIsImp0aSI6Im5ldy1iLTc4OSIsIm5iZiI6MTY5NjUwMDMwMCwiaWF0IjoxNjk2NTAwMzAwLCJleHAiOjE2OTY1MDM5MDB9.au3P...sig",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "b-api-read"
+}
+```
+
+The decoded access token:
+
+```json
+{
+  "iss": "https://as.domain-b.com",
+  "aud": "https://api.domain-b.com",
+  "sub": "user-1234",
+  "client_id": "https://app.domain-a.com",
+  "https://claim.domainb.com/custom": "foobar",
+  "scope": "b-api-read",
+  "act": {
+    "sub": "https://app.domain-a.com"
+  },
+  "jti": "new-b-789",
+  "nbf": 1696500300,
+  "iat": 1696500300,
+  "exp": 1696503900
+}
+```
+
+- In the access token above, the `acr` claim is not included. For this example, we assume that this information was only relevant to the authorization server in domain B in order to permit the token exchange.
+
+- To illustrate how the authorization server that approved the JWT authorization request may add claims specific to its domain resources, the claim `https://claim.domainb.com/custom` is included.
+
+Given this access token, the application in domain A can now call the protected resource `https://api.domain-b.com` in domain B.
+
 <a name="protected-resource-in-originating-domain-acting-as-client-towards-target-domain"></a>
 #### 3.6.2. Protected Resource in Originating Domain Acting as Client Towards Target Domain
 
 This example is similar, but here `https://api.domain-a.com` exchanges the inbound access token for an authorization grant and then requests an access token in domain B.
 
+The example illustrates the second sequence diagram from [Section 3.2](#3-2-solution-overview) which is a combination of the requirements in [Section 2, Protected Resource Acting as an Client](#protected-resource-acting-as-an-client) and [Section 3, Accessing Protected Resources in Other Domains](#accessing-protected-resources-in-other-domains).
+
+> TODO
 
 <a name="additional-token-exchange-requirements-and-considerations"></a>
 ## 4. Additional Token Exchange Requirements and Considerations
