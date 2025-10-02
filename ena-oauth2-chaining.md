@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-10-01
+### Version: 1.0 - draft 01 - 2025-10-02
 
 ## Abstract
 
@@ -100,7 +100,7 @@ This specification profiles the use of OAuth 2.0 Token Exchange for two common u
 
 - [Accessing Protected Resources in Other Domains](#accessing-protected-resources-in-other-domains) &ndash; Entities may need to access resources outside their own domain, where a different authorization server and trust model apply, and in many cases, a different user authentication model is used. This use case is described in [Section 3](#accessing-protected-resources-in-other-domains).  
 
-Common to both use cases is that each API, or protected resource, requires the presentation of a valid access token granted by the resource owner (user). In other words, the access token obtained must involve the user, for example through the authorization code grant, and it must carry the user’s identity so that this identity can be chained across subsequent calls.  
+Common to both use cases is that each API, or protected resource, requires the presentation of a valid access token that conveys some or all of the user's delegated access rights to the protected resource. To enable this delegation, the user's identity must be established and chained across subsequent calls.
 
 **Note:** The problem statements therefore do not include the use of the client credentials grant, where one service calls another without the involvement of a user or resource owner. Such usage is not affected by the chaining challenges described in this document and is therefore out of scope for this specification.  
 
@@ -220,6 +220,8 @@ Clients SHOULD include:
 
 - `requested_token_type` with the value `urn:ietf:params:oauth:token-type:access_token`.
 
+    - Also see the text about "Servers supporting multiple profiles" in [Section 2.3.1](#2-3-1-processing-requirements) below.
+
 Clients MAY include:
 
 - `scope` if specific scopes are required by the downstream protected resource. Any requested scopes MUST have been consented to by the user in the original authorization and MUST NOT exceed what was directly or indirectly authorized.
@@ -227,8 +229,6 @@ Clients MAY include:
 Multiple `resource` or `audience` parameters MAY be included to indicate the intended use of the resulting access token at multiple protected resources, or as stated in Section 6.1.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\], to support alternative representations of a protected resource as audience values.
 
 Client authentication at the token endpoint MUST follow the requirements given in \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
-
-> **Servers supporting multiple profiles.** An authorization server deployment may support token exchange both within its own domain (as described in this section) and in other scenarios that involve different domains (described in [Section 3](#accessing-protected-resources-in-other-domains)). In such cases, the `requested_token_type` parameter MUST be used to distinguish which profile the client is requesting. When `requested_token_type` is `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request according to this section and issue an access token intended for the indicated protected resource(s). When `requested_token_type` is `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request according to the rules specified in [Section 3](#accessing-protected-resources-in-other-domains) and issue a JWT authorization grant for use at another authorization server. If the parameter is omitted and the server cannot unambiguously determine the intended profile from context, it MUST reject the request with `invalid_request`.
 
 <a name="2-3-1-processing-requirements"></a>
 #### 2.3.1. Processing Requirements
@@ -249,9 +249,11 @@ When processing a token exchange request, the authorization server MUST:
 
 - Verify that any requested `scope` is consistent with what was originally authorized by the user. Scopes that have not been directly or indirectly consented to MUST be rejected.
 
-- If `requested_token_type` is omitted, issue an access token.
+    - A "direct consent" means that the user has given their consent through a dialogue at the authorization server, while "indirect consent" refers to cases where the user has previously accepted the user agreements in use within the domain.
 
-- If `requested_token_type` is present with any other value than `urn:ietf:params:oauth:token-type:access_token`, reject the request with `invalid_request`.
+- Assert that `requested_token_type` is `urn:ietf:params:oauth:token-type:access_token`, or if it is omitted, apply the logic from "Servers supporting multiple profiles" below.
+
+**Servers supporting multiple profiles:** An authorization server deployment may support token exchange both within its own domain (as described in this section) and in other scenarios that involve different domains (described in [Section 3](#accessing-protected-resources-in-other-domains)). In such cases, the `requested_token_type` parameter MUST be used to distinguish which type of token exchange the client is requesting. When `requested_token_type` is `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request according to this section and issue an access token intended for the indicated protected resource(s). When `requested_token_type` is `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request according to the rules specified in [Section 3](#accessing-protected-resources-in-other-domains) and issue a JWT authorization grant for use at another authorization server. If the parameter is omitted and the server cannot unambiguously determine the intended profile from context, it MUST reject the request with `invalid_request`.
 
 <a name="2-4-token-exchange-response"></a>
 ### 2.4. Token Exchange Response
@@ -623,8 +625,6 @@ However, the minimum requirements for establishing the cross-domain use case are
 
 - The authorization server in the target domain MUST support JWT authorization grants as defined in \[[RFC7523](#rfc7523)\] and as profiled by this specification.
 
-- The authorization server in the originating domain MUST NOT assume that the authorization server in the target domain supports OAuth 2.0 Token Exchange. Authorization grants issued for cross-domain use therefore MUST NOT include constructs specific to \[[RFC8693](#rfc8693)\].
-
 - The key used by the authorization server in the originating domain MUST be known to the authorization server in the target domain.
 
 - The issuer identifier of the authorization server in the originating domain MUST be known to the authorization server in the target domain and associated with the correct key and configuration.
@@ -667,21 +667,15 @@ A client in the originating domain (or a protected resource acting as a client) 
       
 - The client SHOULD include `requested_token_type` with a value of `urn:ietf:params:oauth:token-type:jwt` to explicitly request a JWT authorization grant as defined in \[[RFC7523](#rfc7523)\].
 
+    - See also the requirements about "Servers supporting both use cases" in [Section 3.3.3](#3-3-3-processing-requirements).
+
 - The client MAY use the `scope` parameter to specify particular scope(s) for the request.
 
-    - The client MUST NOT request a scope that is higher privileged than the scopes of the presented `subject_token`.
+    - The client MUST NOT request a scope that is not authorized by the user in relation to the presented `subject_token`.
 
     - If the originating and target domains use different scope models, the scope value(s) given in the `scope` parameter MUST be scopes defined within the originating domain. A scope mapping will be performed later, see [Section 3.5.1](#scope-mapping-across-domains).
 
 Client authentication at the token endpoint MUST follow \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. If `private_key_jwt` is used, the `iss` and `sub` of the client assertion MUST equal the client’s identifier registered at the originating authorization server.
-
-> **For servers supporting both use cases.** An authorization server that supports both the intra-domain exchange in [Section 2](#protected-resource-acting-as-an-client) and the cross-domain exchange in this section MUST use the `requested_token_type` parameter to disambiguate the requested behaviour:
->
-> If `requested_token_type` is set to `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request under the rules of [Section 2](#protected-resource-acting-as-an-client), and if `requested_token_type` is set to `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request under the rules of this section.
->
-> Clients SHOULD always supply `requested_token_type`. If `requested_token_type` is omitted, the server MAY infer intent from the target indicator, where the cross-domain case will be chosen if the target identifies an authorization server, and the intra-domain case will be chosen if the target identifies a protected resource within the same domain.
->
-> If the intent cannot be determined unambiguously, the server MUST reject the request with `invalid_request`.
 
 <a name="3-3-2-inbound-token-requirements"></a>
 #### 3.3.2. Inbound Token Requirements
@@ -713,8 +707,17 @@ When the originating authorization server receives a conformant token exchange r
 
 5. Determine the intended protected resource(s) and scope(s) for use in the target domain based on any `resource`/`audience` parameters referring to target-domain APIs supplied by the client, and locally configured scope/resource mappings ([Section 3.5.1](#scope-mappings-across-domains)).
 
+6. Assert that `requested_token_type` is `urn:ietf:params:oauth:token-type:jwt`, or if it is omitted, apply the logic from "Servers supporting both use cases" below.
+
 If the request is invalid, the server MUST respond with an error per \[[RFC8693](#rfc8693)\]. Where applicable, the following errors SHOULD be used: `invalid_request`, `invalid_scope`, `unauthorized_client`, `invalid_target`, and `server_error`.
 
+**Servers supporting both use cases:** An authorization server that supports both the intra-domain exchange in [Section 2](#protected-resource-acting-as-an-client) and the cross-domain exchange in this section MUST use the `requested_token_type` parameter to disambiguate the requested behaviour:
+
+If `requested_token_type` is set to `urn:ietf:params:oauth:token-type:access_token`, the server MUST process the request under the rules of [Section 2](#protected-resource-acting-as-an-client), and if `requested_token_type` is set to `urn:ietf:params:oauth:token-type:jwt`, the server MUST process the request under the rules of this section.
+
+Clients SHOULD always supply `requested_token_type`. If `requested_token_type` is omitted, the server MAY infer intent from the target indicator, where the cross-domain case will be chosen if the target identifies an authorization server, and the intra-domain case will be chosen if the target identifies a protected resource within the same domain.
+
+If the intent cannot be determined unambiguously, the server MUST reject the request with `invalid_request`.
 
 <a name="token-exchange-response-and-jwt-contents"></a>
 #### 3.3.4. Token Exchange Response and JWT Contents
