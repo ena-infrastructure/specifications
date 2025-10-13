@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-10-02
+### Version: 1.0 - draft 01 - 2025-10-13
 
 ## Abstract
 
@@ -79,13 +79,14 @@ This document specifies solutions for chaining OAuth 2.0 identity and authorizat
     4.2.1. [Issuing a Token Usable for Token Exchange](#issuing-a-token-usable-for-token-exchange)
     
     4.2.2. [Processing Requirements for a Subject Token](#processing-requirements-for-a-subject-token)
+    
+    4.3. [Token Exchange and the User and Resource Owner Distinction](#token-exchange-and-the-user-and-resource-owner-distinction)
 
 5. [**References**](#references)
 
     5.1. [Normative References](#normative-references)
 
     5.2. [Informational References](#informational-references)
-
 
 ----
     
@@ -102,7 +103,15 @@ This specification profiles the use of OAuth 2.0 Token Exchange for two common u
 
 Common to both use cases is that each API, or protected resource, requires the presentation of a valid access token that conveys some or all of the user's delegated access rights to the protected resource. To enable this delegation, the user's identity must be established and chained across subsequent calls.
 
-**Note:** The problem statements therefore do not include the use of the client credentials grant, where one service calls another without the involvement of a user or resource owner. Such usage is not affected by the chaining challenges described in this document and is therefore out of scope for this specification.  
+The problem statements therefore do not include the use of the client credentials grant, where one service calls another without the involvement of a user or resource owner. Such usage is not affected by the chaining challenges described in this document and is therefore out of scope for this specification.
+
+**Note:** Section 1.5 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] describes the distinction between a user and a resource owner, and in some OAuth 2.0 deployments, the user is not the actual resource owner. This profile covers the following cases:
+
+- The user is the resource owner and, when directed to the authorization server, delegates access to a client for accessing a protected resource owned by the user.
+
+- A user (for example, an employee) uses an application (the client) that retrieves a protected resource owned by someone other than the user (for example, the user’s organization or another legal entity), but the user’s access is authorized according to the resource’s access policy. In such cases, the user participates in the OAuth 2.0 flow to verify their identity and confirm that they are authorized.
+
+The requirements for the use of OAuth 2.0 token exchange may differ depending on whether the user is the actual resource owner. Where this is relevant, this profile explicitly specifies under which circumstances a given requirement applies. See [Section 4.3, Token Exchange and the User and Resource Owner Distinction](#token-exchange-and-the-user-and-resource-owner-distinction).
 
 <a name="requirements-notation-and-conventions"></a>
 ### 1.1. Requirements Notation and Conventions
@@ -117,7 +126,7 @@ These keywords are capitalized when used to unambiguously specify requirements o
 <a name="2-1-problem-statement"></a>
 ### 2.1. Problem Statement
 
-The simple illustration below illustrates a typical use of the OAuth 2.0 authorization code grant, where an application (OAuth 2.0 client) requests an access token to access an API (protected resource). The user (resource owner) grants the request, and the authorization server issues an access token that the application presents when calling the API.
+The simple illustration below shows a typical use of the OAuth 2.0 authorization code grant, where an application (OAuth 2.0 client) obtains an access token from the authorization server to access an API (protected resource) on behalf of a user interacting with the application.
 
 But what happens if the implementation of the API needs to make a backend call to a second API in order to construct a response to the API request?
 
@@ -159,7 +168,7 @@ autonumber
     Service-->>+User: Redirect
     User->>-AsA: Authorization Request
 
-    User-->AsA: Authenticate and consent
+    User-->AsA: Authenticate (and possibly consent)
 
     AsA-->>+User: Redirect
     User->>-Service: Authorization Response w. code
@@ -182,7 +191,7 @@ autonumber
     Service-->>User: Response ...
 ```
 
-Steps 1 through 9 represents an ordinary OAuth 2.0 authorization code flow, where the application (client) obtains an access token by directing the user to the authorization server where the user delegates rights to the application. The application then uses the issued access token to access the protected resource API A. The protected resource, API A, validates the supplied access token before starting processing of the request.
+Steps 1 through 9 represent a standard OAuth 2.0 authorization code flow, where the application (client) obtains an access token by directing the user to the authorization server, where the user authenticates and the application’s access rights are authorized. The application then uses the issued access token to access the protected resource, API A. The protected resource validates the supplied access token before starting to process the request.
 
 However, in order for API A to process the API-call and to put together a response, it needs to make a call to an underlying resource, API B.
 
@@ -224,7 +233,9 @@ Clients SHOULD include:
 
 Clients MAY include:
 
-- `scope` if specific scopes are required by the downstream protected resource. Any requested scopes MUST have been consented to by the user in the original authorization and MUST NOT exceed what was directly or indirectly authorized.
+- `scope` if specific scopes are required by the downstream protected resource.
+
+    - In deployments where the subject (user) is the actual resource owner, any requested scopes MUST have been consented to by the user during the original authorization and MUST NOT exceed what was authorized. See [Section 4.3, Token Exchange and the User and Resource Owner Distinction](#token-exchange-and-the-user-and-resource-owner-distinction).
 
 Multiple `resource` or `audience` parameters MAY be included to indicate the intended use of the resulting access token at multiple protected resources, or as stated in Section 6.1.1 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\], to support alternative representations of a protected resource as audience values.
 
@@ -247,9 +258,9 @@ When processing a token exchange request, the authorization server MUST:
 
 - Verify that each requested target corresponds to a registered downstream protected resource.
 
-- Verify that any requested `scope` is consistent with what was originally authorized by the user. Scopes that have not been directly or indirectly consented to MUST be rejected.
-
-    - A "direct consent" means that the user has given their consent through a dialogue at the authorization server, while "indirect consent" refers to cases where the user has previously accepted the user agreements in use within the domain.
+- In deployments where the subject (user) is the actual resource owner, each requested `scope` value MUST be consistent with what was originally authorized by the user. Any scope that has not been granted by the user MUST be rejected. See [Section 4.3](#token-exchange-and-the-user-and-resource-owner-distinction).
+    
+- In deployments where the subject (user) is not the resource owner, the authorization server MUST assert, for each requested `scope` value, that the user and client are entitled to obtain this scope for the given target(s); otherwise, the scope MUST be rejected. See [Section 4.3](#token-exchange-and-the-user-and-resource-owner-distinction).
 
 - Assert that `requested_token_type` is `urn:ietf:params:oauth:token-type:access_token`, or if it is omitted, apply the logic from "Servers supporting multiple profiles" below.
 
@@ -263,7 +274,7 @@ Upon successful validation, the authorization server MUST issue a new access tok
 - The access token JWT MUST include an `aud` (audience) claim corresponding to the requested downstream protected resource (expressed with the `resource` or `audience` request parameter).
   - The authorization server MAY include additional audience values representing the same resource, for example to support legacy deployments or alternative identifiers not aligned with the entity naming specified in \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
 
-- The access token JWT MUST carry the same `sub` (end-user identity) as the inbound access token, thereby preserving the delegated user authorization.
+- The access token JWT MUST carry the same `sub` (end-user identity) as the inbound access token, thereby preserving the (delegated) user authorization.
 
 - The access token JWT MUST include all user identity claims from the inbound access token that the receiving entity is authorized to receive.
 
@@ -273,7 +284,7 @@ Upon successful validation, the authorization server MUST issue a new access tok
 
 - In order to provide accountability and auditability, the `act` claim SHOULD be included, containing both the current actor (the entity that requested the access token) and the originating actor(s). The actor MUST be represented using the `sub` claim, consistent with \[[RFC8693](#rfc8693)\]. See [Section 2.4.1](#the-actor-claim) below.
 
-- The access token JWT MUST contain only those scopes that are permitted for the requesting protected resource and relevant to the downstream protected resource. Requested scopes MUST NOT exceed what was originally authorized by the user.
+- The access token JWT MUST contain only those scopes that are permitted for the requesting protected resource and relevant to the downstream protected resource.
 
 - The access token MUST be bound to proof-of-possession mechanisms (such as \[[RFC9449](#rfc9449)\] DPoP) if such mechanisms are in use in the deployment.
 
@@ -511,7 +522,7 @@ The solution for identity and authorization chaining within the same trust domai
 - The authorization server in the originating domain does not have knowledge of protected resources in the target domain with respect to authorization decisions, and  
 - a protected resource in the target domain cannot verify an access token issued by an authorization server in another trust domain.
 
-Therefore, token exchange in these cases must use an intermediate proof issued by the authorization server in the originating domain and trusted by the authorization server in the target domain. This proof is represented as a signed JWT in which the authorization server in the originating domain asserts relevant claims about the sending client and delegating user.
+Therefore, token exchange in these cases must use an intermediate proof issued by the authorization server in the originating domain and trusted by the authorization server in the target domain. This proof is represented as a signed JWT in which the authorization server in the originating domain asserts relevant claims about the sending client and authenticated user.
 
 For this to function, a trust relationship must be configured between the authorization servers in the two domains; see [Section 3.2.1](#domain-trust-relationships-and-prerequisites) below.
 
@@ -552,7 +563,7 @@ The sequence diagram above describes a token exchange operation that enables an 
 
 1. The user is assumed to be logged in to the application in domain A. How this login was performed is out of scope for this profile.
 
-2. For this illustration, it is assumed that the end-user has a relationship with the authorization server, that is, at some point the user was directed to the authorization server and delegated rights to the application to access a protected resource.
+2. For this illustration, it is assumed that the end-user has a relationship with the authorization server; that is, at some point the user was directed to the authorization server, where the user was authenticated and access rights to a protected resource were authorized.
 
 3. The user performs an action in the application that requires the application to access a resource in domain B.
 
@@ -588,7 +599,7 @@ sequenceDiagram
     Service-->>+User: Redirect
     User->>-AsA: Authorization Request
 
-    User-->AsA: Authenticate and consent
+    User-->AsA: Authenticate (and possibly consent)
 
     AsA-->>+User: Redirect
     User->>-Service: Authorization Response w. code
@@ -671,24 +682,22 @@ A client in the originating domain (or a protected resource acting as a client) 
 
 - The client MAY use the `scope` parameter to specify particular scope(s) for the request.
 
-    - The client MUST NOT request a scope that is not authorized by the user in relation to the presented `subject_token`.
+    - In deployments where the subject (user) is the actual resource owner, the client MUST NOT request a scope that is not authorized by the user in relation to the presented `subject_token`. See [Section 4.3](#token-exchange-and-the-user-and-resource-owner-distinction).
 
-    - If the originating and target domains use different scope models, the scope value(s) given in the `scope` parameter MUST be scopes defined within the originating domain. A scope mapping will be performed later, see [Section 3.5.1](#scope-mapping-across-domains).
+    - If the originating and target domains use different scope models, whether the supplied scope values are specific for the originating or target domain is deployment specific. See [Section 3.5.1](#scope-mapping-across-domains).
 
 Client authentication at the token endpoint MUST follow \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\]. If `private_key_jwt` is used, the `iss` and `sub` of the client assertion MUST equal the client’s identifier registered at the originating authorization server.
 
 <a name="3-3-2-inbound-token-requirements"></a>
 #### 3.3.2. Inbound Token Requirements
 
-The `subject_token` used as input to token exchange:
+This profile defines the following requirements for the `subject_token` used as input to the token exchange:
 
-- MUST be either an access token or a refresh token issued by the originating authorization server to the requested client.
+- The `subject_token` MUST be either an access token or a refresh token issued by the originating authorization server to the requesting client.
 
-- MUST be valid, not expired, and not revoked at the time of the request.
+- The token MUST be valid, not expired, and not revoked at the time of the request.
 
-- MUST be bound to a user (resource owner).
-
-- MUST have been issued with a scope (or other authorization attribute) that confers the right to perform cross-domain token exchange. The specific scope name is deployment specific; nevertheless, the originating authorization server MUST enforce that the inbound token conveys this right.
+- The token MUST be bound to a user.
 
 A requesting entity MUST NOT include a token that does not fulfil all the above requirements in a token exchange request.
 
@@ -699,7 +708,7 @@ When the originating authorization server receives a conformant token exchange r
 
 1. Validate the `subject_token` according to [Section 4.2.2, Processing Requirements for a Subject Token](#processing-requirements-for-a-subject-token).
 
-2. Verify that the `subject_token` is user-bound and was issued with the right to perform cross-domain token exchange ([Section 3.3.2](#3-3-2-inbound-token-requirements)). If not, the request MUST be rejected with `invalid_scope`.
+2. Verify that the `subject_token` is user-bound. If not, the request MUST be rejected with `invalid_request`.
 
 3. Authenticate the client and verify it is authorized to request cross-domain token exchange for the indicated target authorization server.
 
@@ -762,11 +771,9 @@ The JWT returned in `access_token` MUST comply with Section 3 of \[[RFC7523](#rf
 
     - The `audience` claim is specific to \[[RFC8693](#rfc8693)\], and no assumption about OAuth 2.0 Token Exchange-support must be made. 
 
-- If scope information needs to be provided, for example, if the originating subject token contains scopes or if scopes are provided in the token exchange request, the `scope` claim MUST be included and contain the scopes that the calling entity is authorized for.
+- If scope information needs to be provided, for example, if the originating subject token contains scopes or if scopes are included in the token exchange request, the `scope` claim SHOULD be included and contain the scopes that the calling entity is authorized for.  
 
-    - The authorization server SHOULD omit scopes that are specific to the originating domain and have no meaning in the cross-domain use case.
-    
-    - Whether the scope values are specific to the originating or the target domain is deployment specific. See [Section 3.5.1](#scope-mapping-across-domains).
+    - If the originating and target domains use different scope models, whether the scope values included are specific to the originating or target domain is deployment specific. See [Section 3.5.1](#scope-mapping-across-domains).
 
 - Additional claims MAY be included based on local policies or bilateral agreements between the originating and target domains.
 
@@ -836,15 +843,9 @@ Furthermore, the token response MUST NOT include a refresh token unless explicit
 <a name="scope-mapping-across-domains"></a>
 #### 3.5.1. Scope Mapping Across Domains
 
-Scopes are often domain-specific, and this must therefore be taken into account when preparing a call for the cross-domain use case. This section specifies how scopes, both represented in a subject token used during token exchange, and when explicitly requested in a token exchange request, should be processed.
+Scope values used within a domain may be specific to that domain and have no meaning outside it. This must be considered in the cross-domain token exchange case, where the authorization server in the originating domain issues the JWT containing the identity of the user along with the client authorizations, for the authorization server in the target domain to consume.
 
-- The right to obtain a cross-domain JWT authorization grant in the originating domain MUST be controlled by scopes or equivalent authorization attributes.
-
-- The scopes used in the target domain MAY be different. In such cases, deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. Whether this mapping is maintained in the originating or target domain is deployment specific.
-
-- The originating authorization server MUST NOT assert target-domain authorizations beyond what mapping rules allow. 
-
-- The target authorization server MUST evaluate the mapped request according to local policy and MAY further restrict scopes.
+This profile does not specify how such scope mapping should be performed, other than that deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. Whether this mapping is maintained in the originating or target domain is deployment specific.
 
 <a name="transcription-of-user-identity-claims"></a>
 #### 3.5.2. Transcription of User Identity Claims
@@ -870,6 +871,9 @@ All examples use the following identifiers:
 For readability, long values are folded and signatures are abbreviated.
 
 Note on scopes across domains: In these examples, the originating domain uses the scope `a-api-read` and the target domain uses the scope `b-api-read`. This reflects that scopes are domain-specific and require mapping as described in [Section 3.5.1](#scope-mappings-across-domains).
+
+In this example, the meaning of `a-api-read` is that the possession of it grants access to API A and API B (and possibly other API:s in B).
+In domain B, the scope `b-api-read` grants access to API B.
 
 <a name="application-in-originating-domain-calling-a-protected-resource-in-target-domain"></a>
 #### 3.6.1. Application in Originating Domain Calling a Protected Resource in Target Domain
@@ -1141,6 +1145,31 @@ This section specifies the requirements for how an authorization server processi
 - If the authorization server issues tokens with a `may_act` claim (see [Section 4.2.1](#issuing-a-token-usable-for-token-exchange)), the `sub` claim inside `may_act` MUST equal the requesting entity's client identifier. Otherwise, the request MUST be rejected.
 
 Note: When a refresh token is supplied as a `subject_token`, its underlying representation, based on the original authorization, is verified against the requirements above.
+
+<a name="token-exchange-and-the-user-and-resource-owner-distinction"></a>
+### 4.3. Token Exchange and the User and Resource Owner Distinction
+
+Section 1.5 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\] describes the distinction between the typical OAuth 2.0 usage, where the user is the resource owner and delegates access to a client for a protected resource, and cases where the OAuth authorization code flow is used even though the user is not the owner of the protected resource.
+
+The major difference between these two OAuth usages lies in what happens at the authorization server when a client sends an authorization request:
+
+- In deployments where the user is the actual resource owner, the authorization server first authenticates the user and then asks for the user’s consent<sup>*</sup> to grant the requesting client access to the protected resource (owned by the user). Scopes are often used to represent the type of access that is requested and granted.<br/><br/>
+In this case, the resulting access token represents the rights that the user has delegated to the client for a particular resource.
+
+- In deployments where the user is **not** the resource owner, the authorization server also authenticates the user, but then performs an authorization process to determine whether the user should be allowed to use the client to access the protected resource. Scopes may also be used to represent the type of access that is requested and granted.<br/><br/>
+In this case, the resulting access token represents the rights that the authorization server has granted to the user for using the client to access a particular protected resource.
+
+Given these distinctions, this profile defines the following requirements for token exchange requests:
+
+- In deployments where the user is the actual resource owner:
+
+    - The authorization server MUST NOT issue access tokens or authorization grant JWTs containing scope values that are not represented in the supplied subject token, and therefore not authorized by the resource owner.
+
+- In deployments where the user is **not** the resource owner:
+
+    - The authorization server MAY issue access tokens or authorization grant JWTs containing additional scope values (that is, other than those represented in the provided subject token), provided that the user and requesting client are authorized for these scopes.
+
+> \[\*\]: User consent may be either *explicit*, meaning that the user gives consent through a dialogue at the authorization server, or *implicit*, meaning that the consent is based on a previously accepted user agreement or similar.
 
 <a name="references"></a>
 ## 5. References
