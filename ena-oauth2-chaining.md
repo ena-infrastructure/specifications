@@ -1189,7 +1189,7 @@ Given these distinctions, this profile defines the following requirements for to
 
 <a name="ena-oauth2-profile"></a>
 **\[Ena.OAuth2.Profile\]**
-> [Ena OAuth 2.0 Interoperability Profile](https://github.com/ena-infrastructure/specifications/blob/main/ena-oauth2-profile.md)
+> [Ena OAuth 2.0 Interoperability Profile](https://ena-infrastructure.github.io/specifications/ena-oauth2-profile.html)
 
 <a name="informational-references"></a>
 ### 5.2. Informational References
