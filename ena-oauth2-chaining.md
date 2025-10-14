@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-10-13
+### Version: 1.0 - draft 01 - 2025-10-14
 
 ## Abstract
 
@@ -65,12 +65,8 @@ This document specifies solutions for chaining OAuth 2.0 identity and authorizat
     3.5.2. [Transcription of User Identity Claims](#transcription-of-user-identity-claims)
 
     3.6. [Examples](#3-6-examples)
-    
-    3.6.1. [Application in Originating Domain Calling a Protected Resource in Target Domain](#application-in-originating-domain-calling-a-protected-resource-in-target-domain)
-
-    3.6.2. [Protected Resource in Originating Domain Acting as Client Towards Target Domain](#protected-resource-in-originating-domain-acting-as-client-towards-target-domain)
-    
-4. [**Additional Token Exchange Requirements and Considerations**](#additional-token-exchange-requirements-and-considerations)
+        
+4. [**General Token Exchange Requirements and Considerations**](#general-token-exchange-requirements-and-considerations)
 
     4.1. [The Resource and Audience Parameters](#the-resource-and-audience-parameters)
     
@@ -741,7 +737,7 @@ The token exchange response MUST be a JSON object as defined by \[[RFC8693](#rfc
 
 - `expires_in` SHOULD be included and reflect the remaining lifetime of the JWT authorization grant.
 
-- If scope values intended for the target domain are determined, the response MAY include `scope`. Such values are advisory to the target authorization server.
+- The `scope` parameter MUST be provided if the scopes included in the issued JWT differ from those requested by the client; otherwise, the parameter is OPTIONAL.
 
 The JWT returned in `access_token` MUST comply with Section 3 of \[[RFC7523](#rfc7523)\] and this profile.
 
@@ -843,9 +839,11 @@ Furthermore, the token response MUST NOT include a refresh token unless explicit
 <a name="scope-mapping-across-domains"></a>
 #### 3.5.1. Scope Mapping Across Domains
 
-Scope values used within a domain may be specific to that domain and have no meaning outside it. This must be considered in the cross-domain token exchange case, where the authorization server in the originating domain issues the JWT containing the identity of the user along with the client authorizations, for the authorization server in the target domain to consume.
+Scope values used within a domain may be specific to that domain and have no meaning outside it. This must be considered in the cross-domain token exchange case, where the authorization server in the originating domain issues the JWT containing the identity of the user along with the client authorizations (scopes), for the authorization server in the target domain to consume.
 
 This profile does not specify how such scope mapping should be performed, other than that deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. Whether this mapping is maintained in the originating or target domain is deployment specific.
+
+An alternative to domain-specific scopes with mappings handled by an authorization server is an approach where the originating domain incorporates relevant scopes from the target domain into its own security and authorization model, and clients within the originating domain request those scopes directly. 
 
 <a name="transcription-of-user-identity-claims"></a>
 #### 3.5.2. Transcription of User Identity Claims
@@ -857,9 +855,9 @@ In cross-domain use cases, it may also be necessary to prevent the disclosure of
 <a name="3-6-examples"></a>
 ### 3.6. Examples
 
-This section provides non-normative, end-to-end illustrations of cross-domain exchange, aligned with the "Ena OAuth 2.0 Interoperability Profile" \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
+This section provides a non-normative, end-to-end illustration of the cross-domain token exchange flow as described in the first sequence diagram in [Section 3.2](#3-2-solution-overview).
 
-All examples use the following identifiers:
+The example uses the following identifiers:
 
 - Authorization server in domain A (originating domain): `https://as.domain-a.com`
 - Application (client) in domain A: `https://app.domain-a.com`
@@ -870,19 +868,13 @@ All examples use the following identifiers:
 
 For readability, long values are folded and signatures are abbreviated.
 
-Note on scopes across domains: In these examples, the originating domain uses the scope `a-api-read` and the target domain uses the scope `b-api-read`. This reflects that scopes are domain-specific and require mapping as described in [Section 3.5.1](#scope-mappings-across-domains).
+Note on scopes across domains: In this example, the originating domain uses the scope `a-api-read` and the target domain uses the scope `b-api-read`. This reflects that scopes are domain-specific and require mapping as described in [Section 3.5.1](#scope-mappings-across-domains).
 
-In this example, the meaning of `a-api-read` is that the possession of it grants access to API A and API B (and possibly other API:s in B).
-In domain B, the scope `b-api-read` grants access to API B.
+Furthermore, for this example, the meaning of `a-api-read` is that the possession of it grants access to API A and API B (and possibly other API:s in B). In domain B, the scope `b-api-read` grants access to API B.
 
-<a name="application-in-originating-domain-calling-a-protected-resource-in-target-domain"></a>
-#### 3.6.1. Application in Originating Domain Calling a Protected Resource in Target Domain
+**Inbound Access Token:**
 
-This example illustrates the first sequence diagram in [Section 3.2](#3-2-solution-overview), where an application (client) in domain A makes a cross-domain call to a protected resource in domain B.
-
-**Inbound Access Token (JWT):**
-
-The access token that the application in domain A has in its possession is shown below.
+The decoded access token JWT that the application in domain A has in its possession is shown below.
 
 ```json
 {
@@ -1054,17 +1046,11 @@ The decoded access token:
 
 Given this access token, the application in domain A can now call the protected resource `https://api.domain-b.com` in domain B.
 
-<a name="protected-resource-in-originating-domain-acting-as-client-towards-target-domain"></a>
-#### 3.6.2. Protected Resource in Originating Domain Acting as Client Towards Target Domain
 
-This example is similar, but here `https://api.domain-a.com` exchanges the inbound access token for an authorization grant and then requests an access token in domain B.
+<a name="general-token-exchange-requirements-and-considerations"></a>
+## 4. General Token Exchange Requirements and Considerations
 
-The example illustrates the second sequence diagram from [Section 3.2](#3-2-solution-overview) which is a combination of the requirements in [Section 2, Protected Resource Acting as an Client](#protected-resource-acting-as-an-client) and [Section 3, Accessing Protected Resources in Other Domains](#accessing-protected-resources-in-other-domains).
-
-> TODO
-
-<a name="additional-token-exchange-requirements-and-considerations"></a>
-## 4. Additional Token Exchange Requirements and Considerations
+This section defines requirements and considerations that are common to both use cases profiled in this specification.
 
 <a name="the-resource-and-audience-parameters"></a>
 ### 4.1. The Resource and Audience Parameters
@@ -1167,7 +1153,7 @@ Given these distinctions, this profile defines the following requirements for to
 
 - In deployments where the user is **not** the resource owner:
 
-    - The authorization server MAY issue access tokens or authorization grant JWTs containing additional scope values (that is, other than those represented in the provided subject token), provided that the user and requesting client are authorized for these scopes.
+    - The authorization server MAY issue access tokens or authorization grant JWTs containing additional scope values (that is, other than those represented in the provided subject token), provided that the user and requesting client are authorized for these scopes. This is permitted because, in these use cases, there is no initial user consent to consider.
 
 > \[\*\]: User consent may be either *explicit*, meaning that the user gives consent through a dialogue at the authorization server, or *implicit*, meaning that the consent is based on a previously accepted user agreement or similar.
 
