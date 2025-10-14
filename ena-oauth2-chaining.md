@@ -1005,7 +1005,7 @@ When the authorization server in domain B receives the token request, it process
 
 The token response:
 
-```json
+```
 HTTP/1.1 200 OK
 Content-Type: application/json
 Cache-Control: no-store
