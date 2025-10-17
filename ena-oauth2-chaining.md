@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization
 
-### Version: 1.0 - draft 01 - 2025-10-14
+### Version: 1.0 - draft 01 - 2025-10-17
 
 ## Abstract
 
@@ -669,8 +669,6 @@ A client in the originating domain (or a protected resource acting as a client) 
       - `urn:ietf:params:oauth:token-type:refresh_token` for a refresh token.
 
   - A target authorization server indicator identifying the authorization server in the target domain. The client MUST supply one of `audience` and `resource`. See [Section 4.1](#the-resource-and-audience-parameters) for further requirements.
-  
-- The client MAY include additional `resource` or `audience` values denoting the intended protected resource(s) in the target domain. These values are advisory to the originating authorization server and are intended to be conveyed to the target authorization server inside the JWT authorization grant.
       
 - The client SHOULD include `requested_token_type` with a value of `urn:ietf:params:oauth:token-type:jwt` to explicitly request a JWT authorization grant as defined in \[[RFC7523](#rfc7523)\].
 
@@ -710,9 +708,7 @@ When the originating authorization server receives a conformant token exchange r
 
 4. Verify that the target authorization server indicated by `audience`/`resource` is configured as a trusted peer and that key material and issuer identifiers are established as per [Section 3.2.1](#domain-trust-relationships-and-prerequisites). If not, the request MUST be rejected with `invalid_target` or `unauthorized_client`.
 
-5. Determine the intended protected resource(s) and scope(s) for use in the target domain based on any `resource`/`audience` parameters referring to target-domain APIs supplied by the client, and locally configured scope/resource mappings ([Section 3.5.1](#scope-mappings-across-domains)).
-
-6. Assert that `requested_token_type` is `urn:ietf:params:oauth:token-type:jwt`, or if it is omitted, apply the logic from "Servers supporting both use cases" below.
+5. Assert that `requested_token_type` is `urn:ietf:params:oauth:token-type:jwt`, or if it is omitted, apply the logic from "Servers supporting both use cases" below.
 
 If the request is invalid, the server MUST respond with an error per \[[RFC8693](#rfc8693)\]. Where applicable, the following errors SHOULD be used: `invalid_request`, `invalid_scope`, `unauthorized_client`, `invalid_target`, and `server_error`.
 
@@ -763,10 +759,6 @@ The JWT returned in `access_token` MUST comply with Section 3 of \[[RFC7523](#rf
 
 - Authentication context. If present in the inbound token, `acr`, `amr`, `auth_time` and similar claims MUST be copied into the JWT authorization grant.
 
-- If the request included target-domain API indicators (`resource` or `audience`), these MUST be represented as `resource` claims in the JWT. 
-
-    - The `audience` claim is specific to \[[RFC8693](#rfc8693)\], and no assumption about OAuth 2.0 Token Exchange-support must be made. 
-
 - If scope information needs to be provided, for example, if the originating subject token contains scopes or if scopes are included in the token exchange request, the `scope` claim SHOULD be included and contain the scopes that the calling entity is authorized for.  
 
     - If the originating and target domains use different scope models, whether the scope values included are specific to the originating or target domain is deployment specific. See [Section 3.5.1](#scope-mapping-across-domains).
@@ -806,7 +798,7 @@ When the target authorization server receives a JWT bearer grant request as desc
 
 1. Client authentication &ndash; The client MUST be authenticated in accordance with Section 8.3 of \[[Ena.OAuth2.Profile](#ena-oauth2-profile)\].
 
-2. Assertion validation &ndash; The server MUST validate the JWT assertion in accordance with \[[RFC7523](#rfc7523)\]. This includes verifying the digital signature, issuer, subject, audience, `jti` (for replay protection), and the `iat`, `nbf`, and `exp` claims. The issuer MUST correspond to a trusted originating authorization server, and the signing key MUST be bound to that issuer as described in [Section 3.2.1](#domain-trust-relationships-and-prerequisites).
+2. Assertion validation &ndash; The server MUST validate the JWT assertion in accordance with \[[RFC7523](#rfc7523)\]. This includes verifying the digital signature, issuer, subject, audience, `jti` (for replay protection), and the `iat`, `nbf`, and `exp` claims. The issuer MUST correspond to a trusted originating authorization server, and the signing key MUST be bound to that issuer as described in [Section 3.2.1](#domain-trust-relationships-and-prerequisites). The `aud` claim of the JWT MUST contain the issuer identifier for the target authorization server.
 
 3. Scope and resource determination &ndash; The server MUST determine the scopes and target resources for the token to be issued. This decision MUST take into account any `resource` and `scope` parameters in the request, values carried in the assertion, and locally configured scope or resource mappings as described in [Section 3.5.1](#scope-mappings-across-domains).
 
