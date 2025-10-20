@@ -32,7 +32,7 @@
   <article class="markdown-body">
 <p><a target="_blank" rel="noopener noreferrer" href="images/ena-logo.png"><img src="images/ena-logo.png" alt="Logo" style="max-width: 100%;"></a></p>
 <h1>Ena OAuth 2.0 Interoperability Profile</h1>
-<h3>Version: 1.0 - draft 01 - 2025-09-04</h3>
+<h3>Version: 1.0 - draft 01 - 2025-10-16</h3>
 <h2>Abstract</h2>
 <p>The OAuth 2.0 framework defines mechanisms that allow users (resource owners) to delegate access rights to a protected resource for an application they are using. Additionally, OAuth 2.0 protocols are often used without user involvement in service-to-service scenarios.</p>
 <p>Over the years, numerous extensions and features have been introduced, making “OAuth 2.0” an insufficient label to guarantee interoperability between parties. Therefore, this document defines a profile for OAuth 2.0 to enhance interoperability, strengthen security, and enable more efficient and cost-effective deployments. While the profile is primarily intended for Swedish public and private services and organizations, it is not limited to them.</p>
@@ -223,17 +223,16 @@
 <p>However, for interoperability reasons, the requirements stated in the subsections below apply.</p>
 <p><a name="user-content-client-identifiers"></a></p>
 <h4>2.2.1. Client Identifiers</h4>
-<p>Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.</p>
-<p>[<a href="#rfc6749">RFC6749</a>] and [<a href="#rfc7591">RFC7591</a>] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in [<a href="#openid-federation">OpenID.Federation</a>] also apply to this profile.</p>
-<p>A client registered with multiple authorization servers MUST use the same client identifier (<code class="notranslate">client_id</code>) for all registrations. This implies that an authorization server compliant with this profile MUST support clients with client identifiers issued by external parties.</p>
-<p>A client identifier MUST NOT be assigned if its value may be mistaken for the identity of an end-user (see Section 4.15 of [<a href="#rfc9700">RFC9700</a>]). Since this profile dictates that client identifiers must be URLs, the risk of mistaking a client identifier for a end-user identity is low, but authorization servers MUST still ensure that the namespaces used for subject names (<code class="notranslate">sub</code> claim and potentially other user identity claims) and client identifiers do not interfere.</p>
+<p>Every client compliant with this profile SHOULD be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.</p>
+<blockquote>
+<p><a href="#rfc6749">RFC6749</a> and <a href="#rfc7591">RFC7591</a> specify that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in <a href="#openid-federation">OpenID.Federation</a> also apply.</p>
+</blockquote>
+<p>A client operating in a federative context, where it is registered with multiple authorization servers, MUST use the same client identifier (<code class="notranslate">client_id</code>) for all registrations. Consequently, an authorization server compliant with this profile and operating within a federative context MUST support clients that use client identifiers issued by external parties.</p>
+<p>A client identifier MUST NOT be assigned if its value could be mistaken for the identity of an end-user (see Section 4.15 of <a href="#rfc9700">RFC9700</a>). When client identifiers are represented as URLs, the risk of such confusion is low, but authorization servers MUST still ensure that the namespaces used for subject names (the <code class="notranslate">sub</code> claim and any other user identity claims) and client identifiers remain separate.</p>
 <p><a name="user-content-client-registration-metadata"></a></p>
 <h4>2.2.2. Client Registration Metadata</h4>
 <p>Section 2 of "OAuth 2.0 Dynamic Client Registration Protocol", [<a href="#rfc7591">RFC7591</a>], lists client metadata parameters, and entities compliant with this profile MUST adhere to the requirements in that section, with the extensions and clarifications stated in the subsections below.</p>
 <p>Within a pure OAuth 2.0 context, there is no concept of a "client metadata document". The OAuth 2.0 specifications address how a client is registered with an authorization server, and if a client is registered with multiple authorization servers, the registration data may vary between them. Thus, the parameters in Section 2 of [<a href="#rfc7591">RFC7591</a>] should be regarded as client registration metadata for a particular registration, rather than as a client metadata document.</p>
-<blockquote>
-<p>[<a href="#ena-federation">ENA.Federation</a>] specifies requirements for a client producing a metadata document for use within a federation.</p>
-</blockquote>
 <p><a name="user-content-redirect-uris"></a></p>
 <h5>2.2.2.1. Redirect URIs</h5>
 <p><strong>Metadata parameter:</strong> <code class="notranslate">redirect_uris</code></p>
@@ -1084,7 +1083,7 @@ _z5EsOGpKG1I9LEksRch0bxCKXbOUUOFREBuxX9NUjqBenUeP91J2TDMDEQ6EHxQ
 <p>Entities compliant with this profile that support the <code class="notranslate">resource</code> parameter MUST adhere to the requirements stated in [<a href="#rfc8707">RFC8707</a>], with the following additions and clarifications:</p>
 <ul>
 <li>
-<p>Unless overridden by local policy, the client MUST use the Resource Identifier of the protected resource it is requesting access to as the value of the <code class="notranslate">resource</code> parameter. See <a href="#protected-resource-identity-and-registration">Section 4.3, Protected Resource Identity and Registration</a>.</p>
+<p>If the Resource Identifier of the protected resource (see <a href="#protected-resource-identity-and-registration">Section 4.3</a>) is known to the client, this identifier SHOULD be used as the value of the <code class="notranslate">resource</code> parameter. If the Resource Identifier is not known to the client, the <code class="notranslate">resource</code> parameter MUST be assigned in accordance with the requirements in Section 2 of [<a href="#rfc8707">RFC8707</a>].</p>
 </li>
 <li>
 <p>An authorization server receiving a <code class="notranslate">resource</code> parameter that it cannot map to a protected resource under its control MUST reject the request and return an error response where the <code class="notranslate">error</code> parameter is set to <code class="notranslate">invalid_target</code>. This requirement applies even if multiple resource values are provided and only one of them cannot be mapped.</p>
