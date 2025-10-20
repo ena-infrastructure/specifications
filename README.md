@@ -10,7 +10,7 @@ This is the starting page for the OAuth 2.0 profiles and specifications develope
 
 - [Ena OAuth 2.0 User Authentication Best Practices](https://ena-infrastructure.github.io/specifications/ena-oauth2-authn-bp.html) &mdash; In many cases, a user is already logged in to a web service (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.
 
-- [Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization](ena-oauth2-chaining.md) &mdash; An OAuth 2.0 profile for how to use the [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693.html) standard for solving issues such as identity and authorization chaining across domains and the use of OAuth 2.0 access tokens in back-end services.
+- [Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization](https://ena-infrastructure.github.io/specifications/ena-oauth2-chaining.html) &mdash; An OAuth 2.0 profile for how to use the [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693.html) standard for solving issues such as identity and authorization chaining across domains and the use of OAuth 2.0 access tokens in back-end services.
 
 ### Coming papers
 

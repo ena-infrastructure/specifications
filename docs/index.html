@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>README.md</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    :root { color-scheme: light; }
+    html, body { background: #ffffff !important; }
+    .markdown-body {
+      color: #24292f !important;
+      background: #ffffff !important;
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+    .markdown-body .mermaid,
+    .markdown-body .mermaid svg { background: #ffffff !important; }
+    .markdown-body pre, .markdown-body code, .markdown-body tt {
+      background: #f6f8fa !important; color: #24292f !important;
+    }
+    .markdown-body table tr { background: #ffffff !important; }
+    .markdown-body blockquote { color: #57606a !important; background: #ffffff !important; }
+    @media (max-width: 767px) { .markdown-body { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <article class="markdown-body">
+<p><a target="_blank" rel="noopener noreferrer" href="images/ena-logo.png"><img src="images/ena-logo.png" alt="Logo" style="max-width: 100%;"></a></p>
+<h1>Ena Infrastructure OAuth 2.0 Profiles and Specifications</h1>
+<p>This is the starting page for the OAuth 2.0 profiles and specifications developed by the Ena Infrastructure technical working group.</p>
+<h2>Specifications</h2>
+<ul>
+<li>
+<p><a href="https://ena-infrastructure.github.io/specifications/ena-oauth2-profile.html" rel="nofollow">Ena OAuth 2.0 Interoperability Profile</a> — This document defines a profile for OAuth 2.0 to enhance interoperability, strengthen security, and enable more efficient and cost-effective deployments. While the profile is primarily intended for Swedish public and private services and organizations, it is not limited to them.</p>
+</li>
+<li>
+<p><a href="https://ena-infrastructure.github.io/specifications/ena-oauth2-authn-bp.html" rel="nofollow">Ena OAuth 2.0 User Authentication Best Practices</a> — In many cases, a user is already logged in to a web service (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.</p>
+</li>
+</ul>
+<h3>Coming papers</h3>
+<p>Below is a listing of profiles and documents that will be produced by the Ena Infrastructure working group.</p>
+<ul>
+<li>
+<p><strong>Ena OAuth 2.0 Cookbook</strong> — An informational document that illustrates common OAuth 2.0 use cases with recipes for how to send requests, process responses, and handle access tokens.</p>
+</li>
+<li>
+<p><strong>Ena OAuth 2.0 Federation Interoperability Profile</strong> — Historically, OAuth 2.0 has been used in a non-federative way, where clients register with authorization servers either manually or via a registration protocol. As a result of the emergence of the <a href="https://openid.net/specs/openid-federation-1_0.html" rel="nofollow">OpenID Federation</a>, it will be possible to use OAuth 2.0 entities in a federative way, where client metadata may be resolved by an authorization server at runtime, or where an authorization server’s decisions may be based on metadata such as trust marks.<br><br>This document profiles how OAuth 2.0 entities should join and operate within a federation according to the <a href="https://openid.net/specs/openid-federation-1_0.html" rel="nofollow">OpenID Federation</a> standard.</p>
+</li>
+<li>
+<p><strong>Ena OAuth 2.0 Token Exchange Interoperability Profile</strong> — An OAuth 2.0 profile for how to use the <a href="https://www.rfc-editor.org/rfc/rfc8693.html" rel="nofollow">OAuth 2.0 Token Exchange</a> standard for solving issues such as identity and authorization chaining across domains and the use of OAuth 2.0 access tokens in back-end services.</p>
+</li>
+</ul>
+<h2>Feedback and Contributions</h2>
+<p>The work is performed on GitHub at <a href="https://github.com/ena-infrastructure/specifications">https://github.com/ena-infrastructure/specifications</a>.</p>
+<p>Please give your feedback and comments by opening a <a href="https://github.com/ena-infrastructure/specifications/issues">GitHub Issue</a>.</p>  </article>
+
+  <!-- Mermaid runtime -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <script>
+    // ---- 1) Normalize GitHub "user-content-" anchors so #introduction works ----
+    (function normalizeAnchors() {
+      // For <a name="user-content-foo"> → add id="foo" on that <a>
+      document.querySelectorAll('a[name^="user-content-"]').forEach(function(a){
+        var name = a.getAttribute('name');
+        if (!name) return;
+        var plain = name.replace(/^user-content-/, '');
+        // Add an id alias (safe even if duplicates; we check)
+        if (!document.getElementById(plain)) a.id = plain;
+      });
+
+      // For any element with id="user-content-foo" → insert alias <span id="foo">
+      document.querySelectorAll('[id^="user-content-"]').forEach(function(el){
+        var plain = el.id.replace(/^user-content-/, '');
+        if (!document.getElementById(plain)) {
+          var alias = document.createElement('span');
+          alias.id = plain;
+          alias.style.position = 'relative';
+          alias.style.top = '-0px'; // no offset; adjust if you add fixed headers
+          el.prepend(alias);
+        }
+      });
+    })();
+
+    // ---- 2) Robust Mermaid detection and manual render ----
+    (async function () {
+      function isMermaidFirstLine(s) {
+        if (!s) return false;
+        var first = (s || '').split('\n').find(function (ln) { return ln.trim().length > 0; }) || '';
+        first = first.trim();
+        return /^(graph(?![a-z])|flowchart|sequenceDiagram|classDiagram|erDiagram|stateDiagram|journey|gantt|pie|mindmap|timeline|quadrantChart)\b/.test(first);
+      }
+
+      // GitHub style: <div class="highlight highlight-source-mermaid"><pre>…</pre></div>
+      var preGH = Array.from(document.querySelectorAll('div.highlight-source-mermaid > pre'));
+      // Classic: <pre><code class="language-mermaid">…</code></pre> or inline code
+      var codeClassic = Array.from(document.querySelectorAll('pre > code.language-mermaid, code.language-mermaid, code.mermaid'));
+      // Fallback: any <pre> whose first non-empty line looks like Mermaid
+      var preLooksLike = Array.from(document.querySelectorAll('pre')).filter(function (pre) {
+        if (pre.closest('div.highlight-source-mermaid')) return false;
+        return isMermaidFirstLine(pre.textContent || '');
+      });
+
+      var candidates = [].concat(preGH, codeClassic, preLooksLike);
+
+      var containers = [];
+      candidates.forEach(function (node) {
+        var host, raw;
+        if (node.tagName && node.tagName.toLowerCase() === 'pre') {
+          host = node;
+          raw = node.textContent || '';
+        } else if (node.tagName && node.tagName.toLowerCase() === 'code') {
+          host = node.closest('pre') || node;
+          raw = node.textContent || '';
+        } else {
+          return;
+        }
+        var div = document.createElement('div');
+        div.className = 'mermaid';
+        div.setAttribute('data-raw', raw);
+        div.textContent = raw;
+        host.replaceWith(div);
+        containers.push(div);
+      });
+
+      if (containers.length === 0) {
+        console.warn('Mermaid: no diagrams detected.');
+        return;
+      }
+
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose', // allow <br /> in labels
+          themeVariables: { background: '#ffffff' }
+        });
+
+        let i = 0;
+        for (const el of containers) {
+          const code = el.getAttribute('data-raw') || '';
+          const id = 'mmd-' + (i++);
+          try {
+            const out = await mermaid.render(id, code);
+            el.innerHTML = out.svg;
+            if (typeof out.bindFunctions === 'function') out.bindFunctions(el);
+          } catch (err) {
+            console.error('Mermaid render failed:', err, '\nCode:\n' + code);
+          }
+        }
+        console.log('Mermaid: rendered ' + containers.length + ' diagram(s).');
+      } catch (e) {
+        console.error('Mermaid init failed:', e);
+      }
+    })();
+  </script>
+</body>
+</html>

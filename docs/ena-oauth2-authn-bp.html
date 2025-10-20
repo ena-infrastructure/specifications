@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ena-oauth2-authn-bp.md</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    :root { color-scheme: light; }
+    html, body { background: #ffffff !important; }
+    .markdown-body {
+      color: #24292f !important;
+      background: #ffffff !important;
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+    .markdown-body .mermaid,
+    .markdown-body .mermaid svg { background: #ffffff !important; }
+    .markdown-body pre, .markdown-body code, .markdown-body tt {
+      background: #f6f8fa !important; color: #24292f !important;
+    }
+    .markdown-body table tr { background: #ffffff !important; }
+    .markdown-body blockquote { color: #57606a !important; background: #ffffff !important; }
+    @media (max-width: 767px) { .markdown-body { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <article class="markdown-body">
+<p><a target="_blank" rel="noopener noreferrer" href="images/ena-logo.png"><img src="images/ena-logo.png" alt="Logo" style="max-width: 100%;"></a></p>
+<h1>Ena OAuth 2.0 User Authentication Best Practices</h1>
+<h3>Version: 1.0 - draft 01 - 2025-09-03</h3>
+<h2>Abstract</h2>
+<p>The OAuth 2.0 framework defines mechanisms that allow users (resource owners) to delegate access rights to a protected resource for an application they are using. Additionally, OAuth 2.0 protocols are often used without user involvement in service-to-service scenarios.</p>
+<p>In many cases, a user is already logged in to a web application (which also acts as an OAuth 2.0 client) before the first request to the OAuth 2.0 authorization server is made. Since we want a smooth user experience, we do not want the user to have to authenticate again at the authorization server. This document provides best practices for how to integrate application-level user authentication with an OAuth 2.0 deployment.</p>
+<h2>Table of Contents</h2>
+<ol>
+<li>
+<p><a href="#introduction"><strong>Introduction</strong></a></p>
+<p>1.1. <a href="#problem-description">Problem Description</a></p>
+</li>
+<li>
+<p><a href="#recommended-solutions"><strong>Recommended Solutions</strong></a></p>
+<p>2.1. <a href="#combining-authentication-and-authorization-server">Combining Authentication and Authorization Servers into a Single Component</a></p>
+<p>2.1.1. <a href="#migration-via-proxy-for-an-existing-saml-idp">Migration via Proxy for an Existing SAML IdP</a></p>
+<p>2.1.2. <a href="#supporting-both-saml-and-oauth-oidc">Supporting Both SAML and OAuth 2.0/OpenID Connect</a></p>
+<p>2.1.3. <a href="#benefits">Benefits</a></p>
+<p>2.1.4. <a href="#illustration-of-the-combined-model">Illustration of the Combined Model</a></p>
+<p>2.2. <a href="#using-single-sign-on-capabilities">Using Single Sign-On Capabilities</a></p>
+<p>2.3. <a href="#client-provides-identity-assertion">Client Provides Identity Assertion</a></p>
+</li>
+<li>
+<p><a href="#references"><strong>References</strong></a></p>
+</li>
+</ol>
+<p><a name="user-content-introduction"></a></p>
+<h2>1. Introduction</h2>
+<p>When a user is directed to the authorization server from a client (for example, a web application) in order to delegate certain rights to that client, the OAuth 2.0 protocol requires that the authorization server authenticate the user before proceeding with user consent and any further actions aimed at issuing an access token for the client.</p>
+<p>That the authorization server needs to know which user it should delegate rights for is obvious, but how this authentication is actually performed is out of scope for the OAuth 2.0 specifications.</p>
+<p>In many real-life scenarios, the user has already authenticated and logged in to the web application before the application acts as an OAuth client and redirects the user to the authorization server. In security domains where authentications are session-bound and “remember me” functionality is not used, this may mean that the user has to authenticate twice: once when logging in to the web application and again when being redirected to the authorization server.</p>
+<p>If the web application and the authorization server use the same type of user authentication, for example, they both use the same identity provider and they both require the same user identity attributes and authentication context for authenticating a user, there are methods to apply where the user only (visibly) authenticates once.</p>
+<p>This document provides best practices for user authentication in OAuth 2.0 when end users log in to the  web application (which is the OAuth 2.0 client) before the OAuth 2.0 flow starts.</p>
+<p>The document presents a number of approaches to solving the above problem, some of which are considered more favourable. The approach chosen for a particular deployment depends on its ability to adapt and make the necessary changes.</p>
+<p>However, certain prerequisites must be met for the recommendations in this document to be valid:</p>
+<ul>
+<li>
+<p>The web application and the OAuth 2.0 authorization server must maintain a consistent "view" of their users with respect to authentication. This requires them to share a common set of requirements regarding assurance levels and identity attributes. In theory, this means that the user typically authenticates with the same eID for both the web application and the authorization server. In practice, however, the same eID may not be sufficient, since some identity providers also release attributes such as roles and assignments. In such cases, the requirement is that both the web application and the authorization server use the same identity provider.</p>
+</li>
+<li>
+<p>The authentication services or modules used by the web application and the OAuth 2.0 authorization server should be externalized rather than tightly integrated. For example, they may be a SAML Identity Provider or an OpenID Provider.</p>
+</li>
+</ul>
+<p><a name="user-content-problem-description"></a></p>
+<h3>1.1. Problem Description</h3>
+<p>This section illustrates the problem that the document aims to address and discusses various conditions that an organization may encounter.</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/authn-bp-overview.png"><img src="images/authn-bp-overview.png" alt="Overview" style="max-width: 100%;"></a></p>
+<p>The picture above illustrates the actors that are referred to in this document.</p>
+<dl>
+<dt>User</dt>
+<dd>
+The user, or resource owner, that logs in to the web application and also delegates its rights to the web application for access to the protected resource.
+</dd>
+<dt>Web application</dt>
+<dd>
+The web application to which the user logs into. The web application directs the user to the authentication service for authentication. After the user has logged in, the web application wants to access the protected resource obtaining data that the user owns, or has access rights to. Usually, this resource is an API backend service. In order to access the protected resource on behalf of the user the web application needs to act as an OAuth 2.0 client and obtain an access token from the OAuth 2.0 authorization server.
+</dd>
+<dt>Protected resource</dt>
+<dd>
+The service that exposes an API from where the web application requests resources. This service is configured to require a valid OAuth 2.0 access token in order to grant access and is thus acting as an OAuth 2.0 protected resource.
+</dd>
+<dt>OAuth 2.0 Authorization server</dt>
+<dd>
+The OAuth 2.0 authorization server used by the web application (client). It protects the API (protected resource) and authenticates its users by delegating the authentication to the authentication service.
+</dd>
+<dt>Authentication service</dt>
+<dd>
+An authentication service to which the web application and OAuth 2.0 authorization server delegates user authentication to. This service may be a SAML Identity Provider or an OpenID Connect Provider, or even a service implementing another protocol. The service may offer one, or several, authentication methods, or may act as a proxy service for other authentication services. 
+</dd>
+</dl>
+<p>The below sequence diagram illustrates a flow where the user has to authenticate twice. In this example the authentication service is an SAML Identity Provider and the OAuth 2.0 authorization code flow is being used.</p>
+<pre class="notranslate"><code class="notranslate">sequenceDiagram
+participant User as Användare
+    participant User as User
+    participant App as Web Application
+    participant IdP as SAML IdP
+    participant AS as OAuth 2.0&lt;br /&gt;Authorization Server
+    participant API as Protected Resource&lt;br /&gt;API
+
+    User-&gt;&gt;App: Clicks "Login"
+    App--&gt;+User: Directs user's browser to&lt;br /&gt;IdP for authentication
+    User-&gt;&gt;-IdP: Authentication request
+    User--&gt;IdP: User authenticates
+    IdP--&gt;+User: Posts user's browser back&lt;br /&gt;to application with assertion
+    User-&gt;&gt;-App: Identity assertion
+    Note left of App: User is logged in&lt;br /&gt;to application
+
+    Note over App: App needs to invoke API&lt;br /&gt;(on behalf of user)
+    App--&gt;+User: Directs user's browser to&lt;br /&gt;OAuth 2.0 AS for&lt;br /&gt;authorization and delegation
+    User-&gt;&gt;-AS: Authorization request
+    Note over AS: User needs to&lt;br /&gt;be authenticated
+    AS--&gt;+User: Directs user's browser to&lt;br /&gt;IdP for authentication&lt;br /&gt;(AS is acting as SAML SP)
+    User-&gt;&gt;-IdP: Authentication request
+    User--&gt;IdP: User authenticates
+    IdP--&gt;+User: Posts user's browser back&lt;br /&gt;to application with assertion
+    User-&gt;&gt;-AS: Identity assertion
+    Note over AS: Actions for authorization&lt;br /&gt;and delegation
+    AS--&gt;+User: Posts user's browser back&lt;br /&gt;with authorization code
+    User-&gt;&gt;-App: Authorization code
+    App-&gt;&gt;+AS: Token Request&lt;br /&gt;Request access token by&lt;br /&gt;providing authorization code
+    AS-&gt;&gt;-App: Access token&lt;br /&gt;(and possibly refresh token)
+
+    App-&gt;&gt;+API: Make API call&lt;br /&gt;Access token included
+    API-&gt;&gt;-App: API Response
+    Note over App: The application has now&lt;br /&gt;obtained the requested resource&lt;br /&gt;from the API
+</code></pre>
+<p><a name="user-content-recommended-solutions"></a></p>
+<h2>2. Recommended Solutions</h2>
+<p>This section presents a set of solutions to the problem described above, ordered from the most favourable architecture and solution pattern to the least favourable. The choice of solution depends on factors such as the ability to modify existing systems, other application integration patterns, and, of course, cost.</p>
+<p><a name="user-content-combining-authentication-and-authorization-server"></a></p>
+<h3>2.1. Combining Authentication and Authorization Servers into a Single Component</h3>
+<p>One way to avoid duplicate user authentication is to consolidate the roles of authentication and authorization into a single component. In such a deployment, an OpenID Provider (which is, by definition, an OAuth 2.0 authorization server) fronts the user authentication process and also issues OAuth 2.0/OIDC tokens. The combined system provides user authentication for OAuth transactions, either by authenticating users directly or by acting as a proxy against an external identity provider.</p>
+<p>The combined service therefore acts as an OpenID Provider during user authentication, or as a SAML Identity Provider (see <a href="#supporting-both-saml-and-oauth-oidc">Section 2.1.2</a>), and as an OAuth 2.0 Authorization Server for authorization and delegation requests.</p>
+<p>This model reduces architectural complexity and minimises the number of browser redirects, resulting in a smoother user experience. It is well suited to environments where a central component governs both sign-in and token issuance with consistent policies for assurance, claims, and session management.</p>
+<p><a name="user-content-migration-via-proxy-for-an-existing-saml-idp"></a></p>
+<h4>2.1.1. Migration via Proxy for an Existing SAML IdP</h4>
+<p>Organisations that currently rely on a standalone SAML Identity Provider can transition incrementally by introducing a modern component that acts as both OpenID Provider and OAuth 2.0 authorization server while proxying authentication to the existing SAML IdP:</p>
+<ol>
+<li>
+<p><strong>Introduce an OP/AS in front of the SAML IdP.</strong> Configure the new component as a SAML Service Provider towards the “old” IdP, and as an OpenID Provider/OAuth authorization server towards applications.</p>
+</li>
+<li>
+<p><strong>Preserve assurance and context.</strong> Map the SAML representation of authentication context (<code class="notranslate">AuthnContextClassRef</code>) to the corresponding OpenID Connect value (<code class="notranslate">acr</code>). Ensure that SAML identity attributes are translated into OpenID Connect claims without any loss of meaning.</p>
+</li>
+<li>
+<p><strong>Align sessions.</strong> Decide how the OP/AS session relates to the upstream SAML session (e.g., honour SSO from the IdP, set OP session lifetimes, and define idle/absolute timeouts). Also, possibly plan for front-channel and/or back-channel logout to avoid surprises.</p>
+</li>
+<li>
+<p><strong>Register applications/clients and scopes.</strong> Move applications to use the OP/AS for OAuth 2.0/OpenID Connect. Define scopes and claims that reflect what the API actually needs, and align token lifetimes with risk posture.</p>
+</li>
+</ol>
+<p>Also, consider the following:</p>
+<ul>
+<li>
+<p><strong>Roll out safely.</strong> Migrate low-risk applications first, keep a fallback to direct SAML where necessary, monitor user experience and error rates, then phase out legacy direct integrations.</p>
+</li>
+<li>
+<p><strong>Harden and observe.</strong> Enable centralised auditing, risk signals, step-up policies, and anomaly detection at the OP/AS layer before decommissioning legacy paths.</p>
+</li>
+</ul>
+<p>The overview picture in <a href="#problem-description">Section 1.1</a> can now be redrawn as:</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/authn-bp-with-op.png"><img src="images/authn-bp-with-op.png" alt="With OP" style="max-width: 100%;"></a></p>
+<p><a name="user-content-supporting-both-saml-and-oauth-oidc"></a></p>
+<h4>2.1.2. Supporting Both SAML and OAuth 2.0/OpenID Connect</h4>
+<p>Some products, such as Keycloak, can be configured to act both as a SAML Identity Provider and as an OAuth 2.0 Authorization Server/OpenID Connect Provider at the same time. This flexibility allows organisations to support SAML-based applications that are not yet ready to migrate, while introducing OAuth 2.0 and OpenID Connect for newer applications and APIs.</p>
+<p>Running both protocols side by side provides a practical migration strategy: existing applications can continue to authenticate via SAML, while new applications use OpenID Connect. Over time, SAML integrations can be phased out when appropriate, without forcing an immediate switch for all consumers.</p>
+<p>Note: It is also possible to configure a Keycloak instance to act as a SAML Identity Provider and an OAuth 2.0 authorization server without introducing OpenID Connect as the authentication protocol. In such cases, the Keycloak IdP would proxy authentication to the “old” IdP as described in the previous section.</p>
+<p><a name="user-content-benefits"></a></p>
+<h4>2.1.3. Benefits</h4>
+<p>By combining the authentication and authorization services, several benefits can be achieved:</p>
+<ul>
+<li><strong>Simplified architecture:</strong> a single policy enforcement point for sign-in, session, and token issuance.</li>
+<li><strong>Reduced user friction:</strong> fewer redirects and fewer visible authentications.</li>
+<li><strong>Consistent policy:</strong> uniform handling of assurance levels, attributes/claims, and consent.</li>
+<li><strong>Incremental adoption:</strong> a legacy SAML IdP can remain in place while applications migrate, or continue to serve as the authenticator used by the combined service.</li>
+<li><strong>Mixed-protocol support:</strong> both SAML and OIDC clients can coexist during transition.</li>
+</ul>
+<p><a name="user-content-illustration-of-the-combined-model"></a></p>
+<h4>2.1.4. Illustration of the Combined Model</h4>
+<p>The diagram below shows the improved flow compared to the double-login example in <a href="#problem-description">Section 1.1</a>. In this case, the combined authentication and authorization server establishes a user session when the user logs in, and no further authentication is required for subsequent OAuth calls.</p>
+<pre class="notranslate"><code class="notranslate">sequenceDiagram
+    autonumber
+    participant User as User
+    participant App as Web Application
+    participant OPAS as OP/AS&lt;br /&gt;(OIDC + OAuth 2.0)
+    participant SAML as SAML IdP
+    participant API as Protected Resource&lt;br /&gt;API
+
+    Note over User,OPAS: Phase 1: User logs in&lt;br /&gt;User session at OP/AS is established
+    User-&gt;&gt;App: Clicks "Login"
+    App--&gt;+User: Redirects browser to OP/AS (OIDC)
+    User-&gt;&gt;-OPAS: Authentication request (OIDC)
+
+
+    OPAS--&gt;+User: Redirect to SAML IdP
+    User-&gt;&gt;-SAML: SAML AuthnRequest
+    User--&gt;SAML: User authenticates
+    SAML--&gt;+User: Browser posts assertion
+    User-&gt;&gt;-OPAS: SAML assertion to OP/AS
+
+    OPAS-&gt;&gt;OPAS: Create user session
+    OPAS--&gt;+User: Return to application with ID token
+    User-&gt;&gt;-App: ID token (user now logged in to App)
+
+    Note over App,OPAS: Phase 2: Application requests OAuth token&lt;br /&gt;OP/AS reuses session
+    App--&gt;+User: Redirects browser to OP/AS (authorization request)
+    User-&gt;&gt;-OPAS: Authorization request
+
+    Note over OPAS: Existing OP/AS session found,&lt;br /&gt;no user authentication required
+    OPAS--&gt;+User: Immediate redirect back with authorization code
+    User-&gt;&gt;-App: Authorization code
+
+    App-&gt;&gt;+OPAS: Token request
+    OPAS-&gt;&gt;-App: Access token (and optionally refresh token)
+
+    %% API call
+    App-&gt;&gt;+API: API request with access token
+    API-&gt;&gt;-App: API response
+</code></pre>
+<p><a name="user-content-using-single-sign-on-capabilities"></a></p>
+<h3>2.2. Using Single Sign-On Capabilities</h3>
+<p>When both the web application and the authorization server delegate authentication to the same identity provider, Single Sign-On (SSO) can often be leveraged. By relying on a shared authentication session at the identity provider, both systems can recognise that the user has already been authenticated and avoid asking for credentials again.</p>
+<p>The main advantage of this approach is its low cost and high usability. Users experience a seamless flow where authentication performed once is transparently reused by both the web application and the authorization server. From an implementation perspective, this method requires minimal additional configuration if the identity provider supports SSO and exposes consistent sessions across relying parties.</p>
+<p>However, this solution is not always feasible. Some identity providers either lack proper SSO support or enforce user interaction (such as a mandatory confirmation step) even when a valid authentication session exists. In such cases, the user may still encounter repeated prompts, reducing the overall benefit.</p>
+<p>Despite these limitations, using SSO is often a good solution whenever the technical prerequisites are met, since it combines simplicity with a good user experience.</p>
+<p>Depending on how the identity provider operates, there may be scenarios where an OAuth 2.0 authorization request needs to include additional information in order for SSO to work. For example, the web application may allow the user to choose between several identity providers during login. In such cases, the web application must indicate which IdP holds the user session when sending the OAuth 2.0 authorization request. See Section 5.1.1.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>].</p>
+<p>The sequence diagram below is similar to the one in <a href="#problem-description">Section 1.1</a>, with the important difference that the user only needs to authenticate once.</p>
+<pre class="notranslate"><code class="notranslate">sequenceDiagram
+participant User as Användare
+    participant User as User
+    participant App as Web Application
+    participant IdP as SAML IdP
+    participant AS as OAuth 2.0&lt;br /&gt;Authorization Server
+    participant API as Protected Resource&lt;br /&gt;API
+
+    User-&gt;&gt;App: Clicks "Login"
+    App--&gt;+User: Directs user's browser to&lt;br /&gt;IdP for authentication
+    User-&gt;&gt;-IdP: Authentication request
+    User--&gt;IdP: User authenticates
+    IdP-&gt;&gt;IdP: Create user session
+    IdP--&gt;+User: Posts user's browser back&lt;br /&gt;to application with assertion
+    User-&gt;&gt;-App: Identity assertion
+    Note left of App: User is logged in&lt;br /&gt;to application
+
+    Note over App: App needs to invoke API&lt;br /&gt;(on behalf of user)
+    App--&gt;+User: Directs user's browser to&lt;br /&gt;OAuth 2.0 AS for&lt;br /&gt;authorization and delegation
+    User-&gt;&gt;-AS: Authorization request
+    Note over AS: User needs to&lt;br /&gt;be authenticated
+    AS--&gt;+User: Directs user's browser to&lt;br /&gt;IdP for authentication
+    User-&gt;&gt;-IdP: Authentication request
+
+    Note over IdP: Existing user session found,&lt;br /&gt;no user authentication required
+    IdP--&gt;+User: Immediate response&lt;br /&gt;Posts user's browser back&lt;br /&gt;to application with new assertion
+    User-&gt;&gt;-AS: Identity assertion
+    Note over AS: Actions for authorization&lt;br /&gt;and delegation
+    AS--&gt;+User: Posts user's browser back&lt;br /&gt;with authorization code
+    User-&gt;&gt;-App: Authorization code
+    App-&gt;&gt;+AS: Token Request&lt;br /&gt;Request access token by&lt;br /&gt;providing authorization code
+    AS-&gt;&gt;-App: Access token&lt;br /&gt;(and possibly refresh token)
+
+    App-&gt;&gt;+API: Make API call&lt;br /&gt;Access token included
+    API-&gt;&gt;-App: API Response
+    Note over App: The application has now&lt;br /&gt;obtained the requested resource&lt;br /&gt;from the API
+</code></pre>
+<p><a name="user-content-client-provides-identity-assertion"></a></p>
+<h3>2.3. Client Provides Identity Assertion</h3>
+<p>Another method is for the web application itself to provide an identity assertion to the authorization server. In this model, the user authenticates to the web application first. The web application then issues a signed assertion, typically in the form of a SAML assertion, OpenID Connect ID token, or a token issued by an external identity provider, that is presented to the authorization server as proof of the user’s identity.</p>
+<p>The authorization server validates the assertion and, if it meets the configured assurance requirements, accepts it as fulfilling the user authentication step within the OAuth 2.0 flow.</p>
+<p>This approach is more complex to implement, as it requires secure token exchange and trust relationships between the web application, the identity provider, and the authorization server. However, it provides flexibility in cases where SSO is not available or when stronger control over authentication context and assurance levels is required.</p>
+<p>A common pattern is to use the SAML 2.0 Bearer Assertion Grant, [<a href="#rfc7522">RFC7522</a>]. The same pattern can also be applied with OAuth 2.0 Token Exchange, [<a href="#rfc8693">RFC8693</a>], when an OpenID Connect ID token is used. See Section 5.4.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] for requirements on how to use [<a href="#rfc7522">RFC7522</a>].</p>
+<p>While more demanding in terms of configuration, the identity assertion model ensures that the authorization server can rely on the authentication already performed by the web application, thus eliminating duplicate logins for the end user.</p>
+<p>Some drawbacks of this method include:</p>
+<ul>
+<li>It creates additional trust dependencies and is generally not suitable for intra-organisation use.</li>
+<li>It requires the IdP/OP to be aware of all audiences where the tokens will be used.</li>
+<li>It prevents the establishment of a user session at the OAuth 2.0 authorization server.</li>
+<li>Tokens must be exchanged immediately after being received by the application/client, since SAML and OIDC tokens are short-lived.</li>
+</ul>
+<p>Therefore, this solution may be used in very specific cases, but it should be considered a last resort.</p>
+<p><a name="user-content-references"></a></p>
+<h2>3. References</h2>
+<p><a name="user-content-ena-oauth2-profile"></a><br>
+<strong>[Ena.OAuth2.Profile]</strong></p>
+<blockquote>
+<p><a href="https://github.com/ena-infrastructure/specifications/blob/main/ena-oauth2-profile.md">Ena OAuth 2.0 Interoperability Profile</a></p>
+</blockquote>
+<p><a name="user-content-rfc7522"></a><br>
+<strong>[RFC7522]</strong></p>
+<blockquote>
+<p><a href="https://datatracker.ietf.org/doc/html/rfc7522" rel="nofollow">Campbell, B., Mortimore, C., and M. Jones, "Security Assertion Markup Language (SAML) 2.0 Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7522, DOI 10.17487/RFC7522, May 2015</a>.</p>
+</blockquote>
+<p><a name="user-content-rfc8693"></a><br>
+<strong>[RFC8693]</strong></p>
+<blockquote>
+<p><a href="https://www.rfc-editor.org/info/rfc8693" rel="nofollow">Jones, M., Campbell, B., and D. Waite, "OAuth 2.0 Token Exchange", RFC 8693, DOI 10.17487/RFC8693, January 2020</a>.</p>
+</blockquote>  </article>
+
+  <!-- Mermaid runtime -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <script>
+    // ---- 1) Normalize GitHub "user-content-" anchors so #introduction works ----
+    (function normalizeAnchors() {
+      // For <a name="user-content-foo"> → add id="foo" on that <a>
+      document.querySelectorAll('a[name^="user-content-"]').forEach(function(a){
+        var name = a.getAttribute('name');
+        if (!name) return;
+        var plain = name.replace(/^user-content-/, '');
+        // Add an id alias (safe even if duplicates; we check)
+        if (!document.getElementById(plain)) a.id = plain;
+      });
+
+      // For any element with id="user-content-foo" → insert alias <span id="foo">
+      document.querySelectorAll('[id^="user-content-"]').forEach(function(el){
+        var plain = el.id.replace(/^user-content-/, '');
+        if (!document.getElementById(plain)) {
+          var alias = document.createElement('span');
+          alias.id = plain;
+          alias.style.position = 'relative';
+          alias.style.top = '-0px'; // no offset; adjust if you add fixed headers
+          el.prepend(alias);
+        }
+      });
+    })();
+
+    // ---- 2) Robust Mermaid detection and manual render ----
+    (async function () {
+      function isMermaidFirstLine(s) {
+        if (!s) return false;
+        var first = (s || '').split('\n').find(function (ln) { return ln.trim().length > 0; }) || '';
+        first = first.trim();
+        return /^(graph(?![a-z])|flowchart|sequenceDiagram|classDiagram|erDiagram|stateDiagram|journey|gantt|pie|mindmap|timeline|quadrantChart)\b/.test(first);
+      }
+
+      // GitHub style: <div class="highlight highlight-source-mermaid"><pre>…</pre></div>
+      var preGH = Array.from(document.querySelectorAll('div.highlight-source-mermaid > pre'));
+      // Classic: <pre><code class="language-mermaid">…</code></pre> or inline code
+      var codeClassic = Array.from(document.querySelectorAll('pre > code.language-mermaid, code.language-mermaid, code.mermaid'));
+      // Fallback: any <pre> whose first non-empty line looks like Mermaid
+      var preLooksLike = Array.from(document.querySelectorAll('pre')).filter(function (pre) {
+        if (pre.closest('div.highlight-source-mermaid')) return false;
+        return isMermaidFirstLine(pre.textContent || '');
+      });
+
+      var candidates = [].concat(preGH, codeClassic, preLooksLike);
+
+      var containers = [];
+      candidates.forEach(function (node) {
+        var host, raw;
+        if (node.tagName && node.tagName.toLowerCase() === 'pre') {
+          host = node;
+          raw = node.textContent || '';
+        } else if (node.tagName && node.tagName.toLowerCase() === 'code') {
+          host = node.closest('pre') || node;
+          raw = node.textContent || '';
+        } else {
+          return;
+        }
+        var div = document.createElement('div');
+        div.className = 'mermaid';
+        div.setAttribute('data-raw', raw);
+        div.textContent = raw;
+        host.replaceWith(div);
+        containers.push(div);
+      });
+
+      if (containers.length === 0) {
+        console.warn('Mermaid: no diagrams detected.');
+        return;
+      }
+
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose', // allow <br /> in labels
+          themeVariables: { background: '#ffffff' }
+        });
+
+        let i = 0;
+        for (const el of containers) {
+          const code = el.getAttribute('data-raw') || '';
+          const id = 'mmd-' + (i++);
+          try {
+            const out = await mermaid.render(id, code);
+            el.innerHTML = out.svg;
+            if (typeof out.bindFunctions === 'function') out.bindFunctions(el);
+          } catch (err) {
+            console.error('Mermaid render failed:', err, '\nCode:\n' + code);
+          }
+        }
+        console.log('Mermaid: rendered ' + containers.length + ' diagram(s).');
+      } catch (e) {
+        console.error('Mermaid init failed:', e);
+      }
+    })();
+  </script>
+</body>
+</html>

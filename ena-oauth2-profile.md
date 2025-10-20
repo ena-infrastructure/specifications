@@ -2,7 +2,7 @@
 
 # Ena OAuth 2.0 Interoperability Profile
 
-### Version: 1.0 - draft 01 - 2025-09-24
+### Version: 1.0 - draft 01 - 2025-10-16
 
 ## Abstract
 
@@ -250,13 +250,13 @@ However, for interoperability reasons, the requirements stated in the subsection
 <a name="client-identifiers"></a>
 #### 2.2.1. Client Identifiers
 
-Every client compliant with the profile MUST be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
+Every client compliant with this profile SHOULD be identified by a globally unique URL. This URL MUST use the HTTPS scheme and include a host component. It MUST NOT contain query or fragment components.
 
-\[[RFC6749](#rfc6749)\] and \[[RFC7591](#rfc7591)\] state that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in \[[OpenID.Federation](#openid-federation)\] also apply to this profile.
+> [RFC6749](#rfc6749) and [RFC7591](#rfc7591) specify that a client identifier is simply a unique string. However, since this profile also focuses on the use of OAuth 2.0 across security domains and within federations, the requirements for “Entity Identifiers” as defined in [OpenID.Federation](#openid-federation) also apply.
 
-A client registered with multiple authorization servers MUST use the same client identifier (`client_id`) for all registrations. This implies that an authorization server compliant with this profile MUST support clients with client identifiers issued by external parties.
+A client operating in a federative context, where it is registered with multiple authorization servers, MUST use the same client identifier (`client_id`) for all registrations. Consequently, an authorization server compliant with this profile and operating within a federative context MUST support clients that use client identifiers issued by external parties.
 
-A client identifier MUST NOT be assigned if its value may be mistaken for the identity of an end-user (see Section 4.15 of \[[RFC9700](#rfc9700)\]). Since this profile dictates that client identifiers must be URLs, the risk of mistaking a client identifier for a end-user identity is low, but authorization servers MUST still ensure that the namespaces used for subject names (`sub` claim and potentially other user identity claims) and client identifiers do not interfere.
+A client identifier MUST NOT be assigned if its value could be mistaken for the identity of an end-user (see Section 4.15 of [RFC9700](#rfc9700)). When client identifiers are represented as URLs, the risk of such confusion is low, but authorization servers MUST still ensure that the namespaces used for subject names (the `sub` claim and any other user identity claims) and client identifiers remain separate.
 
 <a name="client-registration-metadata"></a>
 #### 2.2.2. Client Registration Metadata
@@ -264,8 +264,6 @@ A client identifier MUST NOT be assigned if its value may be mistaken for the id
 Section 2 of "OAuth 2.0 Dynamic Client Registration Protocol", \[[RFC7591](#rfc7591)\], lists client metadata parameters, and entities compliant with this profile MUST adhere to the requirements in that section, with the extensions and clarifications stated in the subsections below.
 
 Within a pure OAuth 2.0 context, there is no concept of a "client metadata document". The OAuth 2.0 specifications address how a client is registered with an authorization server, and if a client is registered with multiple authorization servers, the registration data may vary between them. Thus, the parameters in Section 2 of \[[RFC7591](#rfc7591)\] should be regarded as client registration metadata for a particular registration, rather than as a client metadata document.
-
-> \[[ENA.Federation](#ena-federation)\] specifies requirements for a client producing a metadata document for use within a federation.
 
 <a name="redirect-uris"></a>
 ##### 2.2.2.1. Redirect URIs
