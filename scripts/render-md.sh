@@ -73,13 +73,21 @@ else
   gh api markdown -F mode=gfm -F "text=@$PRE_MD" > "$TMP_CONTENT"
 fi
 
+# Extract first-level heading from Markdown for HTML <title>
+first_heading="$(grep -m1 -E '^[[:space:]]*# ' "$INPUT_ABS" | sed -E 's/^[[:space:]]*# //; s/[[:space:]]+$//')"
+if [[ -z "$first_heading" ]]; then
+  html_title="$in_base"
+else
+  html_title="$first_heading"
+fi
+
 # HTML shell
 cat > "$OUTPUT_ABS" <<EOF
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>${in_base}</title>
+  <title>${html_title}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <link rel="stylesheet" href="$CSS_URL">
