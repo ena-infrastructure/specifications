@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ena-oauth2-chaining.md</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css">
+  <style>
+    :root { color-scheme: light; }
+    html, body { background: #ffffff !important; }
+    .markdown-body {
+      color: #24292f !important;
+      background: #ffffff !important;
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+    .markdown-body .mermaid,
+    .markdown-body .mermaid svg { background: #ffffff !important; }
+    .markdown-body pre, .markdown-body code, .markdown-body tt {
+      background: #f6f8fa !important; color: #24292f !important;
+    }
+    .markdown-body table tr { background: #ffffff !important; }
+    .markdown-body blockquote { color: #57606a !important; background: #ffffff !important; }
+    @media (max-width: 767px) { .markdown-body { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <article class="markdown-body">
+<p><a target="_blank" rel="noopener noreferrer" href="images/ena-logo.png"><img src="images/ena-logo.png" alt="Logo" style="max-width: 100%;"></a></p>
+<h1>Ena OAuth 2.0 Token Exchange Profile for Chaining Identity and Authorization</h1>
+<h3>Version: 1.0 - draft 01 - 2025-10-17</h3>
+<h2>Abstract</h2>
+<p>The OAuth 2.0 framework defines mechanisms that allow users (resource owners) to delegate access rights to protected resources for the applications they use.</p>
+<p>This document specifies solutions for chaining OAuth 2.0 identity and authorization in scenarios where calls to protected resources trigger additional calls, or where calls cross domain boundaries.</p>
+<h2>Table of Contents</h2>
+<ol>
+<li>
+<p><a href="#introduction"><strong>Introduction</strong></a></p>
+<p>1.1. <a href="#requirements-notation-and-conventions">Requirements Notation and Conventions</a></p>
+</li>
+<li>
+<p><a href="#protected-resource-acting-as-an-client"><strong>Protected Resource Acting as an Client</strong></a></p>
+<p>2.1. <a href="#2-1-problem-statement">Problem Statement</a></p>
+<p>2.2. <a href="#2-2-solution-overview">Solution Overview</a></p>
+<p>2.3. <a href="#2-3-token-exchange-request">Token Exchange Request</a></p>
+<p>2.3.1. <a href="#2-3-1-processing-requirements">Processing Requirements</a></p>
+<p>2.4. <a href="#2-4-token-exchange-response">Token Exchange Response</a></p>
+<p>2.4.1. <a href="#the-actor-claim">The Actor Claim</a></p>
+<p>2.5. <a href="#2-5-examples">Examples</a></p>
+</li>
+<li>
+<p><a href="#accessing-protected-resources-in-other-domains"><strong>Accessing Protected Resources in Other Domains</strong></a></p>
+<p>3.1. <a href="#3-1-problem-statement">Problem Statement</a></p>
+<p>3.2. <a href="#3-2-solution-overview">Solution Overview</a></p>
+<p>3.2.1. <a href="#domain-trust-relationships-and-prerequisites">Domain Trust Relationships and Prerequisites</a></p>
+<p>3.3. <a href="#3-3-token-exchange">Token Exchange</a></p>
+<p>3.3.1. <a href="#3-3-1-token-exchange-request">Token Exchange Request</a></p>
+<p>3.3.2. <a href="#3-3-2-inbound-token-requirements">Inbound Token Requirements</a></p>
+<p>3.3.3. <a href="#3-3-3-processing-requirements">Processing Requirements</a></p>
+<p>3.3.4. <a href="#token-exchange-response-and-jwt-contents">Token Exchange Response and JWT Contents</a></p>
+<p>3.4. <a href="#authorization-grant-requirements">Authorization Grant Requirements</a></p>
+<p>3.4.1. <a href="#access-token-request-according-to-rfc7523">Access Token Request According to RFC7523</a></p>
+<p>3.4.2. <a href="#processing-of-jwt-authorization-grant">Processing of JWT Authorization Grant</a></p>
+<p>3.4.3. <a href="#3-4-3-token-response">Token Response</a></p>
+<p>3.5. <a href="#additional-features-and-advanced-topics">Additional Features and Advanced Topics</a></p>
+<p>3.5.1. <a href="#scope-mapping-across-domains">Scope Mapping Across Domains</a></p>
+<p>3.5.2. <a href="#transcription-of-user-identity-claims">Transcription of User Identity Claims</a></p>
+<p>3.6. <a href="#3-6-examples">Examples</a></p>
+</li>
+<li>
+<p><a href="#general-token-exchange-requirements-and-considerations"><strong>General Token Exchange Requirements and Considerations</strong></a></p>
+<p>4.1. <a href="#the-resource-and-audience-parameters">The Resource and Audience Parameters</a></p>
+<p>4.2. <a href="#subject-token-requirements-and-considerations">Subject Token Requirements and Considerations</a></p>
+<p>4.2.1. <a href="#issuing-a-token-usable-for-token-exchange">Issuing a Token Usable for Token Exchange</a></p>
+<p>4.2.2. <a href="#processing-requirements-for-a-subject-token">Processing Requirements for a Subject Token</a></p>
+<p>4.3. <a href="#token-exchange-and-the-user-and-resource-owner-distinction">Token Exchange and the User and Resource Owner Distinction</a></p>
+</li>
+<li>
+<p><a href="#references"><strong>References</strong></a></p>
+<p>5.1. <a href="#normative-references">Normative References</a></p>
+<p>5.2. <a href="#informational-references">Informational References</a></p>
+</li>
+</ol>
+<hr>
+<p><a name="user-content-introduction"></a></p>
+<h2>1. Introduction</h2>
+<p>The "OAuth 2.0 Token Exchange" specification, [<a href="#rfc8693">RFC8693</a>], defines a generic extension to OAuth 2.0 that allows an entity to call an OAuth 2.0 authorization server acting as a Security Token Service (STS) in order to exchange a token in its possession for another token. While token exchange is a powerful tool for addressing many OAuth 2.0-related challenges, a generic specification such as [<a href="#rfc8693">RFC8693</a>] requires profiling to achieve interoperability and to avoid introducing security risks.</p>
+<p>This specification profiles the use of OAuth 2.0 Token Exchange for two common use cases where a structured and secure method of applying OAuth 2.0 has not previously been defined.</p>
+<ul>
+<li>
+<p><a href="#protected-resource-acting-as-a-client">Protected Resource Acting as a Client</a> – A protected resource may, in order to fulfil a request, need to act as an OAuth 2.0 client and make another call that requires an access token. This use case is described in <a href="#protected-resource-acting-as-a-client">Section 2</a>.</p>
+</li>
+<li>
+<p><a href="#accessing-protected-resources-in-other-domains">Accessing Protected Resources in Other Domains</a> – Entities may need to access resources outside their own domain, where a different authorization server and trust model apply, and in many cases, a different user authentication model is used. This use case is described in <a href="#accessing-protected-resources-in-other-domains">Section 3</a>.</p>
+</li>
+</ul>
+<p>Common to both use cases is that each API, or protected resource, requires the presentation of a valid access token that conveys some or all of the user's delegated access rights to the protected resource. To enable this delegation, the user's identity must be established and chained across subsequent calls.</p>
+<p>The problem statements therefore do not include the use of the client credentials grant, where one service calls another without the involvement of a user or resource owner. Such usage is not affected by the chaining challenges described in this document and is therefore out of scope for this specification.</p>
+<p><strong>Note:</strong> Section 1.5 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] describes the distinction between a user and a resource owner, and in some OAuth 2.0 deployments, the user is not the actual resource owner. This profile covers the following cases:</p>
+<ul>
+<li>
+<p>The user is the resource owner and, when directed to the authorization server, delegates access to a client for accessing a protected resource owned by the user.</p>
+</li>
+<li>
+<p>A user (for example, an employee) uses an application (the client) that retrieves a protected resource owned by someone other than the user (for example, the user’s organization or another legal entity), but the user’s access is authorized according to the resource’s access policy. In such cases, the user participates in the OAuth 2.0 flow to verify their identity and confirm that they are authorized.</p>
+</li>
+</ul>
+<p>The requirements for the use of OAuth 2.0 token exchange may differ depending on whether the user is the actual resource owner. Where this is relevant, this profile explicitly specifies under which circumstances a given requirement applies. See <a href="#token-exchange-and-the-user-and-resource-owner-distinction">Section 4.3, Token Exchange and the User and Resource Owner Distinction</a>.</p>
+<p><a name="user-content-requirements-notation-and-conventions"></a></p>
+<h3>1.1. Requirements Notation and Conventions</h3>
+<p>The keywords “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” are to be interpreted as described in [<a href="#rfc2119">RFC2119</a>].</p>
+<p>These keywords are capitalized when used to unambiguously specify requirements over protocol features and behavior that affect the interoperability and security of implementations. When these words are not capitalized, they are meant in their natural-language sense.</p>
+<p><a name="user-content-protected-resource-acting-as-an-client"></a></p>
+<h2>2. Protected Resource Acting as an Client</h2>
+<p><a name="user-content-2-1-problem-statement"></a></p>
+<h3>2.1. Problem Statement</h3>
+<p>The simple illustration below shows a typical use of the OAuth 2.0 authorization code grant, where an application (OAuth 2.0 client) obtains an access token from the authorization server to access an API (protected resource) on behalf of a user interacting with the application.</p>
+<p>But what happens if the implementation of the API needs to make a backend call to a second API in order to construct a response to the API request?</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/api-call.png"><img src="images/api-call.png" alt="Pic" style="max-width: 100%;"></a></p>
+<p>In this scenario, the first API will act as an OAuth 2.0 client against the second API, but how will it acquire the access token to pass along in the call?</p>
+<p>Firstly, let's determine why the access token it received in the call from the application cannot simply be forwarded:</p>
+<ul>
+<li>
+<p>The audience for this access token is set to be the first API and according to access token processing rules (see Section 6.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>]) the second API would reject this token since it is not intended for it.</p>
+</li>
+<li>
+<p>The <code class="notranslate">client_id</code> claim for the access token is set to the identifier of the client making the request which in our case is the application.</p>
+</li>
+<li>
+<p>The scope(s) issued for the first access token may differ from the scope requirements of the second API.</p>
+</li>
+<li>
+<p>If the "Demonstrating Proof of Possession - DPoP", [<a href="#rfc9449">RFC9449</a>], security feature is used within the OAuth-deployment, the first API cannot simply forward the DPoP-header to the second API since it is a one-time use header that is also bound to the exact URL of the (orginal) request.</p>
+</li>
+</ul>
+<p>Some deployments that do not use DPoP forward access tokens between services in a call chain. In such cases, the access token either contains multiple audience values or all invoked services are treated as the same entity. Furthermore, the initial client identifier is passed along the chain, which breaks traceability. Entities conformant with this profile MUST NOT rely on such shortcuts.</p>
+<p>The following sub-sections specify how OAuth 2.0 Token Exchange, as defined in [<a href="#rfc8693">RFC8693</a>], can be used by a protected resource to obtain a new access token based on a previously received one before acting as an OAuth 2.0 client to call another service.</p>
+<p><a name="user-content-2-2-solution-overview"></a></p>
+<h3>2.2. Solution Overview</h3>
+<p>The sequence diagram below illustrates the role of OAuth 2.0 Token Exchange during chained API-calls.</p>
+<pre class="notranslate"><code class="notranslate">sequenceDiagram
+autonumber
+    
+    actor User as User
+    participant Service as Application&lt;br/&gt;(Client)
+    participant AsA as Authorization Server A
+    participant ApiA as Protected Resource&lt;br/&gt;API A
+    participant ApiB as Protected Resource&lt;br/&gt;API B
+
+    User--&gt;&gt;Service: Action ...
+
+    Service--&gt;&gt;+User: Redirect
+    User-&gt;&gt;-AsA: Authorization Request
+
+    User--&gt;AsA: Authenticate (and possibly consent)
+
+    AsA--&gt;&gt;+User: Redirect
+    User-&gt;&gt;-Service: Authorization Response w. code
+
+    Service-&gt;&gt;+AsA: Token Request w. code
+    AsA-&gt;&gt;-Service: Token Response w. Access Token
+
+    Service-&gt;&gt;+ApiA: Make API call&lt;br/&gt;Include Access Token
+
+    Note over ApiA: API A will have to invoke API B&lt;br/&gt;in order to process API-call
+
+    ApiA-&gt;&gt;+AsA: Token Exchange Request
+    AsA-&gt;&gt;-ApiA: Token Exchange Response&lt;br/&gt;with Access Token
+
+    ApiA-&gt;&gt;+ApiB: Make API call&lt;br/&gt;Include new Access Token
+    ApiB-&gt;&gt;-ApiA: API response
+
+    ApiA-&gt;&gt;-Service: API response
+
+    Service--&gt;&gt;User: Response ...
+</code></pre>
+<p>Steps 1 through 9 represent a standard OAuth 2.0 authorization code flow, where the application (client) obtains an access token by directing the user to the authorization server, where the user authenticates and the application’s access rights are authorized. The application then uses the issued access token to access the protected resource, API A. The protected resource validates the supplied access token before starting to process the request.</p>
+<p>However, in order for API A to process the API-call and to put together a response, it needs to make a call to an underlying resource, API B.</p>
+<p>In order to obtain a valid access token for API B, API A acts as an OAuth 2.0 client towards the authorization server. Instead of prompting the user again or forwarding the original token, API A uses OAuth 2.0 Token Exchange [<a href="#rfc8693">RFC8693</a>] to present the inbound access token it received from the application and requests a new access token intended for API B (steps 10 and 11).</p>
+<p>This mechanism ensures that:</p>
+<ul>
+<li>The user’s identity and authorization context are preserved across the chained call.</li>
+<li>The newly issued access token has the correct audience, namely API B, and the appropriate scopes required for the operation.</li>
+<li>API A’s client identity is visible in the transaction, providing accountability and auditability.</li>
+<li>Security features such as DPoP bindings remain valid, since the access token is freshly minted for the target resource.</li>
+</ul>
+<p>By using token exchange, API A does not need to manage or impersonate the original client. Instead, it formally assumes the role of an OAuth 2.0 client, bound by the same rules as any other client when requesting access tokens. This maintains a clear separation of concerns: the application acts as a client in relation to API A, and API A acts as a client in relation to API B.</p>
+<p>This solution also strengthens traceability, since the resulting access token clearly reflects both the identity of the user (as chained from the inbound token) and the identity of API A as the requesting client. Downstream services can therefore distinguish whether a request originates directly from the user’s application or from another protected resource acting on behalf of the user.</p>
+<p>In the following sections, the exact requirements for the token exchange request, processing rules, and response are defined.</p>
+<p><a name="user-content-2-3-token-exchange-request"></a></p>
+<h3>2.3. Token Exchange Request</h3>
+<p>A protected resource that needs to act as a client in order to call another protected resource MUST perform an OAuth 2.0 token exchange request in accordance with [<a href="#rfc8693">RFC8693</a>]. The inbound access token received from the original client MUST be supplied as the <code class="notranslate">subject_token</code>.</p>
+<p>The token exchange request MUST include:</p>
+<ul>
+<li>
+<p><code class="notranslate">grant_type</code> with the value <code class="notranslate">urn:ietf:params:oauth:grant-type:token-exchange</code>.</p>
+</li>
+<li>
+<p><code class="notranslate">subject_token</code> containing the inbound access token.</p>
+</li>
+<li>
+<p><code class="notranslate">subject_token_type</code> with the value <code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code>.</p>
+</li>
+<li>
+<p>A target indicator identifying the downstream protected resource, either <code class="notranslate">resource</code> or <code class="notranslate">audience</code>. See <a href="#the-resource-and-audience-parameters">Section 4.1</a> for further requirements.<br><br>If a <code class="notranslate">scope</code> value is provided from which the authorization server can deduce the protected resource, the target indicator MAY be omitted.</p>
+</li>
+</ul>
+<p>Clients SHOULD include:</p>
+<ul>
+<li>
+<p><code class="notranslate">requested_token_type</code> with the value <code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code>.</p>
+<ul>
+<li>Also see the text about "Servers supporting multiple profiles" in <a href="#2-3-1-processing-requirements">Section 2.3.1</a> below.</li>
+</ul>
+</li>
+</ul>
+<p>Clients MAY include:</p>
+<ul>
+<li>
+<p><code class="notranslate">scope</code> if specific scopes are required by the downstream protected resource.</p>
+<ul>
+<li>In deployments where the subject (user) is the actual resource owner, any requested scopes MUST have been consented to by the user during the original authorization and MUST NOT exceed what was authorized. See <a href="#token-exchange-and-the-user-and-resource-owner-distinction">Section 4.3, Token Exchange and the User and Resource Owner Distinction</a>.</li>
+</ul>
+</li>
+</ul>
+<p>Multiple <code class="notranslate">resource</code> or <code class="notranslate">audience</code> parameters MAY be included to indicate the intended use of the resulting access token at multiple protected resources, or as stated in Section 6.1.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>], to support alternative representations of a protected resource as audience values.</p>
+<p>Client authentication at the token endpoint MUST follow the requirements given in [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>].</p>
+<p><a name="user-content-2-3-1-processing-requirements"></a></p>
+<h4>2.3.1. Processing Requirements</h4>
+<p>When processing a token exchange request, the authorization server MUST:</p>
+<ul>
+<li>
+<p>Validate the inbound access token according to <a href="#processing-requirements-for-a-subject-token">Section 4.2.2, Processing Requirements for a Subject Token</a>.</p>
+</li>
+<li>
+<p>Verify that the requesting entity is authorized to perform token exchange.</p>
+</li>
+<li>
+<p>Enforce that at least one target indicator (<code class="notranslate">resource</code> or <code class="notranslate">audience</code>) is present, unless a <code class="notranslate">scope</code> value is provided from which the authorization server can deduce the target service.</p>
+<ul>
+<li>
+<p>If neither is present, the request MUST be rejected with <code class="notranslate">invalid_request</code>.</p>
+</li>
+<li>
+<p>If multiple values are present, the authorization server MUST process them according to local policy and the requirements in [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] (for example, supporting multiple audiences or alternative identifiers for the same resource as described in Section 6.1.1).</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Verify that each requested target corresponds to a registered downstream protected resource.</p>
+</li>
+<li>
+<p>In deployments where the subject (user) is the actual resource owner, each requested <code class="notranslate">scope</code> value MUST be consistent with what was originally authorized by the user. Any scope that has not been granted by the user MUST be rejected. See <a href="#token-exchange-and-the-user-and-resource-owner-distinction">Section 4.3</a>.</p>
+</li>
+<li>
+<p>In deployments where the subject (user) is not the resource owner, the authorization server MUST assert, for each requested <code class="notranslate">scope</code> value, that the user and client are entitled to obtain this scope for the given target(s); otherwise, the scope MUST be rejected. See <a href="#token-exchange-and-the-user-and-resource-owner-distinction">Section 4.3</a>.</p>
+</li>
+<li>
+<p>Assert that <code class="notranslate">requested_token_type</code> is <code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code>, or if it is omitted, apply the logic from "Servers supporting multiple profiles" below.</p>
+</li>
+</ul>
+<p><strong>Servers supporting multiple profiles:</strong> An authorization server deployment may support token exchange both within its own domain (as described in this section) and in other scenarios that involve different domains (described in <a href="#accessing-protected-resources-in-other-domains">Section 3</a>). In such cases, the <code class="notranslate">requested_token_type</code> parameter MUST be used to distinguish which type of token exchange the client is requesting. When <code class="notranslate">requested_token_type</code> is <code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code>, the server MUST process the request according to this section and issue an access token intended for the indicated protected resource(s). When <code class="notranslate">requested_token_type</code> is <code class="notranslate">urn:ietf:params:oauth:token-type:jwt</code>, the server MUST process the request according to the rules specified in <a href="#accessing-protected-resources-in-other-domains">Section 3</a> and issue a JWT authorization grant for use at another authorization server. If the parameter is omitted and the server cannot unambiguously determine the intended profile from context, it MUST reject the request with <code class="notranslate">invalid_request</code>.</p>
+<p><a name="user-content-2-4-token-exchange-response"></a></p>
+<h3>2.4. Token Exchange Response</h3>
+<p>Upon successful validation, the authorization server MUST issue a new access token in response to the token exchange request. The issued access token MUST follow the requirements stated in Section 6.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] with the following extensions and clarifications:</p>
+<ul>
+<li>
+<p>The access token JWT MUST include an <code class="notranslate">aud</code> (audience) claim corresponding to the requested downstream protected resource (expressed with the <code class="notranslate">resource</code> or <code class="notranslate">audience</code> request parameter).</p>
+<ul>
+<li>The authorization server MAY include additional audience values representing the same resource, for example to support legacy deployments or alternative identifiers not aligned with the entity naming specified in [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>].</li>
+</ul>
+</li>
+<li>
+<p>The access token JWT MUST carry the same <code class="notranslate">sub</code> (end-user identity) as the inbound access token, thereby preserving the (delegated) user authorization.</p>
+</li>
+<li>
+<p>The access token JWT MUST include all user identity claims from the inbound access token that the receiving entity is authorized to receive.</p>
+<ul>
+<li>The authorization server MUST NOT include any user identity claims that the receiving entity is not authorized to receive.</li>
+</ul>
+</li>
+<li>
+<p>If the inbound access token contains claims that provide information about the user’s authentication context, such as <code class="notranslate">acr</code>, <code class="notranslate">amr</code>, or <code class="notranslate">auth_time</code>, these claims MUST be preserved and included in the issued access token JWT.</p>
+</li>
+<li>
+<p>In order to provide accountability and auditability, the <code class="notranslate">act</code> claim SHOULD be included, containing both the current actor (the entity that requested the access token) and the originating actor(s). The actor MUST be represented using the <code class="notranslate">sub</code> claim, consistent with [<a href="#rfc8693">RFC8693</a>]. See <a href="#the-actor-claim">Section 2.4.1</a> below.</p>
+</li>
+<li>
+<p>The access token JWT MUST contain only those scopes that are permitted for the requesting protected resource and relevant to the downstream protected resource.</p>
+</li>
+<li>
+<p>The access token MUST be bound to proof-of-possession mechanisms (such as [<a href="#rfc9449">RFC9449</a>] DPoP) if such mechanisms are in use in the deployment.</p>
+</li>
+</ul>
+<p>The response MUST be encoded as JSON according to Section 2.2.1 of [<a href="#rfc8693">RFC8693</a>] and include at least the following elements:</p>
+<ul>
+<li>
+<p><code class="notranslate">access_token</code> – The issued access token as defined above.</p>
+</li>
+<li>
+<p><code class="notranslate">issued_token_type</code> – The token type MUST be set to <code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code>.</p>
+</li>
+<li>
+<p><code class="notranslate">token_type</code> – Specifies the method of using the issued access token. MUST be set to <code class="notranslate">Bearer</code>.</p>
+</li>
+<li>
+<p><code class="notranslate">expires_in</code> – The validity of the issued access token. The value is dependent on deployment policy and out of scope for this profile.</p>
+</li>
+</ul>
+<p>Furthermore, the <code class="notranslate">scope</code> parameter is optional according to [<a href="#rfc8693">RFC8693</a>] if the scope(s) issued were the same as the requested scope(s). However, for simplicity and to improve interoperability, for entities compliant with this profile its use is RECOMMENDED in all cases.</p>
+<p>Unless overridden by local policy, authorization servers compliant with this profile MUST NOT issue refresh tokens for token exchange in the context of identity and authorization chaining.</p>
+<p><a name="user-content-the-actor-claim"></a></p>
+<h4>2.4.1. The Actor Claim</h4>
+<p>The <code class="notranslate">act</code> (actor) claim provides accountability and auditability by recording which entity performed the token exchange. This claim enables downstream protected resources to distinguish between the end-user identity (<code class="notranslate">sub</code>) and the chain of actors that acted on behalf of the user.</p>
+<p>As defined in Section 4.1 of [<a href="#rfc8693">RFC8693</a>], the <code class="notranslate">act</code> claim may be a nested structure to represent multiple actors. Under this profile:</p>
+<ul>
+<li>
+<p>The authorization server SHOULD include the <code class="notranslate">act</code> claim in access tokens issued through token exchange.</p>
+</li>
+<li>
+<p>If included, the <code class="notranslate">act</code> claim MUST contain a <code class="notranslate">sub</code> claim identifying the entity that requested the token exchange.</p>
+</li>
+<li>
+<p>The first <code class="notranslate">sub</code> claim under the <code class="notranslate">act</code> claim will always be identical to the <code class="notranslate">client_id</code> claim included in the access token, as required by Section 6.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>].</p>
+</li>
+<li>
+<p>When multiple exchanges occur, the authorization server MUST preserve all previous actors by nesting them according to [<a href="#rfc8693">RFC8693</a>].</p>
+</li>
+<li>
+<p>The resulting <code class="notranslate">act</code> chain MUST begin with the original client application and continue with each intermediate protected resource that performed a token exchange.</p>
+</li>
+<li>
+<p>Consistent with [<a href="#rfc8693">RFC8693</a>], the contents of the <code class="notranslate">act</code> claim MUST NOT be used for authorization decisions. It is only intended for accountability, auditability, and traceability.</p>
+</li>
+</ul>
+<p><strong>Example</strong></p>
+<p>Below is a simplified JWT payload of an access token issued by <code class="notranslate">https://as.example.com</code> to be used at <code class="notranslate">https://api2.example.com</code>.</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api2.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"acr"</span>: <span class="pl-s"><span class="pl-pds">"</span>http://id.elegnamnden.se/loa/1.0/loa3<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"act"</span>: {
+    <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>,
+    <span class="pl-ent">"act"</span>: {
+      <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.example.com<span class="pl-pds">"</span></span>
+    }
+  },
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>api-read<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>987ui87665456<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1695379200</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1695379200</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1695382800</span>
+}</pre></div>
+<p>In this example:</p>
+<ul>
+<li>The <code class="notranslate">sub</code> claim identifies the end-user (user-1234) and the <code class="notranslate">acr</code> claim tells under which authentication context class the user was authenticated.</li>
+<li>The <code class="notranslate">client_id</code> claim identifies <code class="notranslate">https://api1.example.com</code>, the protected resource acting as a client in the token exchange.</li>
+<li>The first <code class="notranslate">sub</code> claim under the <code class="notranslate">act</code> claim is also <code class="notranslate">https://api1.example.com</code>, and therefore always equals the <code class="notranslate">client_id</code>.</li>
+<li>The nested <code class="notranslate">sub</code> claim under the <code class="notranslate">act</code> claim identifies <code class="notranslate">https://app.example.com</code>, the original client application.</li>
+<li>The <code class="notranslate">aud</code> claim identifies <code class="notranslate">https://api2.example.com</code>, the downstream protected resource.</li>
+</ul>
+<p>This chaining ensures that all involved actors are visible to the downstream service, while authorization decisions remain based only on the standard claims (<code class="notranslate">sub</code>, <code class="notranslate">aud</code>, <code class="notranslate">scope</code>, etc.).</p>
+<p><a name="user-content-2-5-examples"></a></p>
+<h3>2.5. Examples</h3>
+<p>This section provides a non-normative, end-to-end illustration of token exchange, aligned with the "Ena OAuth 2.0 Interoperability Profile", [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>].</p>
+<p>The example illustrates:</p>
+<ul>
+<li>
+<p>The inbound access token (JWT) from the application, <code class="notranslate">https://app.example.com</code>, to the first protected resource, <code class="notranslate">https://api1.example.com</code>.</p>
+</li>
+<li>
+<p>The full HTTP token exchange request that the first protected resource, <code class="notranslate">https://api1.example.com</code>, sends to the authorization server, <code class="notranslate">https://as.example.com/token</code> (including a signed <code class="notranslate">client_assertion</code>).</p>
+</li>
+<li>
+<p>The HTTP response, and the newly issued access token (JWT) for the second protected resource, <code class="notranslate">https://api2.example.com</code>.</p>
+</li>
+</ul>
+<p>For readability, long values are folded and signatures are abbreviated. All examples use the scope <code class="notranslate">api-read</code>.</p>
+<p><strong>Inbound Access Token (JWT):</strong></p>
+<p>Access token presented by the application (<code class="notranslate">https://app.example.com</code>) to the first protected resource (<code class="notranslate">https://api1.example.com</code>):</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: [<span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>],
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"acr"</span>: <span class="pl-s"><span class="pl-pds">"</span>http://id.elegnamnden.se/loa/1.0/loa3<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>api-read<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>inbound-1234-unique-jwt-id<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1695375550</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1695375600</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1695379200</span>
+}</pre></div>
+<blockquote>
+<p>Note that the authorization server has issued the access token with its own issuer identifier among the <code class="notranslate">aud</code> values. See <a href="#issuing-a-token-usable-for-token-exchange">Section 4.2.1, Issuing a Token Usable for Token Exchange</a>.</p>
+</blockquote>
+<p><strong>Token Exchange Request:</strong></p>
+<p>The protected resource <code class="notranslate">https://api1.example.com</code> acts as an OAuth 2.0 client and calls the AS token endpoint for a token exchange request, authenticating with <code class="notranslate">private_key_jwt</code>. The inbound access token above is supplied as the <code class="notranslate">subject_token</code> and a new access token is requested for the audience <code class="notranslate">https://api2.example.com</code>.</p>
+<p>HTTP request:</p>
+<pre class="notranslate"><code class="notranslate">POST /token HTTP/1.1
+Host: as.example.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange&amp;
+subject_token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FzLmV4YW1wbGUu \
+  Y29tIiwiYXVkIjoiaHR0cHM6Ly9hcGkxLmV4YW1wbGUuY29tIiwic3ViIjoidXNlci0xMjM0IiwiY2xpZW50X \
+  2lkIjoiaHR0cHM6Ly9hcHAuZXhhbXBsZS5jb20iLCJzY29wZSI6ImFwaS1yZWFkIiwianRpIjoiaW5ib3VuZC \
+  0xMjM0LXVuaXF1ZS1qd3QtaWQiLCJuYmYiOjE2OTUzNzU1NTAsImlhdCI6MTY5NTM3NTYwMCwiZXhwIjoxNjk \
+  1Mzc5MjAwfQ.MEUCIQDt...&amp;
+subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token&amp;
+audience=https%3A%2F%2Fapi2.example.com&amp;
+scope=api-read&amp;
+client_id=https%3A%2F%2Fapi1.example.com&amp;
+client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&amp;
+client_assertion=eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJ \
+  odHRwczovL2FwaTEuZXhhbXBsZS5jb20iLCJzdWIiOiJodHRwczovL2FwaTEuZXhhbXBsZS5jb20iLCJhdWQi \
+  OiJodHRwczovL2FzLmV4YW1wbGUuY29tL3Rva2VuIiwianRpIjoiYTMtMTIzNC11bmlxdWUtand0LWlkIiwib \
+  mJmIjoxNjk1Mzc1NTUwLCJpYXQiOjE2OTUzNzU2MDAsImV4cCI6MTY5NTM3NTkwMH0.MIIB...
+</code></pre>
+<p>For reference, the decoded <code class="notranslate">client_assertion</code> (<code class="notranslate">private_key_jwt</code>) components:</p>
+<p>JOSE header:</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"alg"</span>: <span class="pl-s"><span class="pl-pds">"</span>RS256<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"kid"</span>: <span class="pl-s"><span class="pl-pds">"</span>kid-001<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"typ"</span>: <span class="pl-s"><span class="pl-pds">"</span>client-authentication+jwt<span class="pl-pds">"</span></span>
+}</pre></div>
+<p>JWT claims:</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>a3-1234-unique-jwt-id<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1695375550</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1695375600</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1695375900</span>
+}</pre></div>
+<p><strong>Token Exchange Response:</strong></p>
+<p>HTTP response:</p>
+<pre class="notranslate"><code class="notranslate">HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+Pragma: no-cache
+
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodH \
+  RwczovL2FzLmV4YW1wbGUuY29tIiwiYXVkIjoiaHR0cHM6Ly9hcGkyLmV4YW1wbGUuY29tIiwic3ViIjoidXNlci0x \
+  MjM0IiwiYWN0Ijp7InN1YiI6Imh0dHBzOi8vYXBpMS5leGFtcGxlLmNvbSIsImFjdCI6eyJzdWIiOiJodHRwczovL2 \
+  FwcC5leGFtcGxlLmNvbSJ9fSwic2NvcGUiOiJhcGktcmVhZCIsImp0aSI6Im5ldy0xMjM0LXVuaXF1ZS1qd3QtaWQi \
+  LCJuYmYiOjE2OTUzNzkyMDAsImlhdCI6MTY5NTM3OTIwMCwiZXhwIjoxNjk1MzgyODAwfQ.Fh0B...",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "api-read"
+}
+</code></pre>
+<p><strong>Newly Issued Access Token (JWT):</strong></p>
+<p>Decoded claims of the issued access token intended for <code class="notranslate">https://api2.example.com</code>:</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api2.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"acr"</span>: <span class="pl-s"><span class="pl-pds">"</span>http://id.elegnamnden.se/loa/1.0/loa3<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"act"</span>: {
+    <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api1.example.com<span class="pl-pds">"</span></span>,
+    <span class="pl-ent">"act"</span>: {
+      <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.example.com<span class="pl-pds">"</span></span>
+    }
+  },
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>api-read<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>new-1234-unique-jwt-id<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1695379200</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1695379200</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1695382800</span>
+}</pre></div>
+<p><a name="user-content-accessing-protected-resources-in-other-domains"></a></p>
+<h2>3. Accessing Protected Resources in Other Domains</h2>
+<p><a name="user-content-3-1-problem-statement"></a></p>
+<h3>3.1. Problem Statement</h3>
+<p>The previous section described the challenge of identity and authorization chaining for services within the same domain, i.e., where the same trust model and authorization server are used. However, applications may also need to access resources outside their own domain, where a different authorization server and trust model apply, and in many cases, a different user authentication model.</p>
+<p><a target="_blank" rel="noopener noreferrer" href="images/api-call-domains.png"><img src="images/api-call-domains.png" alt="Pic" style="max-width: 100%;"></a></p>
+<p>Given this problem statement, the main challenges are:</p>
+<ul>
+<li>The user cannot simply be redirected to the authorization server in the second domain, since that server has no way of authenticating the user.</li>
+<li>An access token issued by the authorization server in the first domain will not be accepted by protected resources in the second domain.</li>
+</ul>
+<p>The solution to the above challenges requires establishing a trust relationship between the authorization servers in the respective domains. This trust enables the authorization server in the first domain to issue a statement intended for the authorization server in the second domain, allowing clients in the first domain to obtain access tokens that can be used in the second domain.</p>
+<p><a name="user-content-3-2-solution-overview"></a></p>
+<h3>3.2. Solution Overview</h3>
+<blockquote>
+<p>Note: The draft "OAuth Identity and Authorization Chaining Across Domains", [<a href="#draft-id-chaining">Draft.ID-Chaining</a>], focuses on solving the problem described above. Future versions of this profile will reference this specification if and when it reaches RFC status. Until then, the draft is informational and no references will be made to it.</p>
+</blockquote>
+<p>The solution for identity and authorization chaining within the same trust domain involves exchanging an access token for another access token containing the correct audience and scope values. However, when a call is made to another trust domain, the output from the token exchange cannot be an access token usable at the intended protected resource. This is because:</p>
+<ul>
+<li>The authorization server in the originating domain does not have knowledge of protected resources in the target domain with respect to authorization decisions, and</li>
+<li>a protected resource in the target domain cannot verify an access token issued by an authorization server in another trust domain.</li>
+</ul>
+<p>Therefore, token exchange in these cases must use an intermediate proof issued by the authorization server in the originating domain and trusted by the authorization server in the target domain. This proof is represented as a signed JWT in which the authorization server in the originating domain asserts relevant claims about the sending client and authenticated user.</p>
+<p>For this to function, a trust relationship must be configured between the authorization servers in the two domains; see <a href="#domain-trust-relationships-and-prerequisites">Section 3.2.1</a> below.</p>
+<pre class="notranslate"><code class="notranslate">sequenceDiagram
+autonumber
+    
+    box Domain A
+        actor User as User
+        participant Service as Application&lt;br/&gt;(Client)
+        participant AsA as Authorization Server A
+        participant ApiA as Protected Resource&lt;br/&gt;API A
+    end
+
+    box Domain B
+        participant AsB as Authorization Server B
+        participant ApiB as Protected Resource&lt;br/&gt;API B
+    end
+
+    User--&gt;Service: Logged in
+    User--&gt;AsA: Has session at Authorization Server
+
+    User--&gt;&gt;Service: Action ...
+
+    Service-&gt;&gt;+AsA: Token Exchange Request (RFC8693)
+    AsA-&gt;&gt;-Service: Authorization Grant JWT (RFC7523)
+
+    Service-&gt;&gt;+AsB: Access Token Request&lt;br /&gt;Pass Authorization Grant JWT (RFC7523)
+    AsB-&gt;&gt;-Service: Access Token Response
+
+    Service-&gt;&gt;+ApiB: Make API call&lt;br /&gt;Include Access Token
+    ApiB-&gt;&gt;-Service: API response
+
+    Service--&gt;&gt;User: Response ...
+</code></pre>
+<p>The sequence diagram above describes a token exchange operation that enables an application in domain A to invoke a protected resource in domain B.</p>
+<ol>
+<li>
+<p>The user is assumed to be logged in to the application in domain A. How this login was performed is out of scope for this profile.</p>
+</li>
+<li>
+<p>For this illustration, it is assumed that the end-user has a relationship with the authorization server; that is, at some point the user was directed to the authorization server, where the user was authenticated and access rights to a protected resource were authorized.</p>
+</li>
+<li>
+<p>The user performs an action in the application that requires the application to access a resource in domain B.</p>
+</li>
+<li>
+<p>To obtain a signed attestation from the authorization server in domain A, which can then be used to request an access token for domain B, the application makes an OAuth 2.0 token exchange request to the authorization server. Included in this request is a previously acquired access or refresh token. See <a href="#3-3-1-token-exchange-request">Section 3.3.1</a> and <a href="#3-3-2-inbound-token-requirements">Section 3.3.2</a>.</p>
+</li>
+<li>
+<p>Based on its configuration and established trust relationships, the authorization server in domain A returns a signed JWT. This JWT contains claims attesting to the information needed by the authorization server in domain B to issue an access token. See <a href="#token-exchange-response-and-jwt-contents">Section 3.3.4</a>.</p>
+</li>
+<li>
+<p>The application (client) in domain A then uses the received JWT authorization grant in a token request to the authorization server in domain B. This is done according to the authorization grant processing requirements defined in [<a href="#rfc7523">RFC7523</a>]. See <a href="#access-token-request-according-to-rfc7523">Section 3.4.1</a>.</p>
+</li>
+<li>
+<p>The authorization server in domain B processes the request according to <a href="#processing-of-jwt-authorization-grant">Section 3.4.2</a> and issues an access token that can be used to access the protected resource in domain B. See <a href="#3-4-3-token-response">Section 3.4.3</a>.</p>
+</li>
+</ol>
+<p>Steps 8–10 follow normal OAuth 2.0 access token usage: the client provides the access token in the request to the protected resource, which validates it before granting access and returning a response.</p>
+<p>The cross-domain use case can also be combined with the previous use case, where a protected resource in domain A acts as an OAuth 2.0 client towards domain B. This is illustrated in the sequence diagram below. The requirements in the following sections also cover these usages of token exchange.</p>
+<pre class="notranslate"><code class="notranslate">sequenceDiagram
+    
+    box Domain A
+        actor User as User
+        participant Service as Application&lt;br/&gt;(Client)
+        participant AsA as Authorization Server A
+        participant ApiA as Protected Resource&lt;br/&gt;API A
+    end
+
+    box Domain B
+        participant AsB as Authorization Server B
+        participant ApiB as Protected Resource&lt;br/&gt;API B
+    end
+
+    User--&gt;&gt;Service: Action ...
+
+    Service--&gt;&gt;+User: Redirect
+    User-&gt;&gt;-AsA: Authorization Request
+
+    User--&gt;AsA: Authenticate (and possibly consent)
+
+    AsA--&gt;&gt;+User: Redirect
+    User-&gt;&gt;-Service: Authorization Response w. code
+
+    Service-&gt;&gt;+AsA: Token Request w. code
+    AsA-&gt;&gt;-Service: Token Response w. Access Token
+
+    Service-&gt;&gt;+ApiA: Make API call&lt;br/&gt;Include Access Token
+
+    ApiA-&gt;&gt;+AsA: Token Exchange Request (RFC8693)
+    AsA-&gt;&gt;-ApiA: Authorization Grant JWT (RFC7523)
+
+    ApiA-&gt;&gt;+AsB: Access Token Request&lt;br/&gt;Pass Authorization Grant JWT (RFC7523)
+    AsB-&gt;&gt;-ApiA: Access Token Response
+
+    ApiA-&gt;&gt;+ApiB: Make API call&lt;br/&gt;Include Access Token
+    ApiB-&gt;&gt;-ApiA: API response
+
+    ApiA-&gt;&gt;-Service: API response
+
+    Service--&gt;&gt;User: Response ...
+</code></pre>
+<p><a name="user-content-domain-trust-relationships-and-prerequisites"></a></p>
+<h4>3.2.1. Domain Trust Relationships and Prerequisites</h4>
+<p>For the above token exchange flows to be possible, there must be a trust relationship configured in which the authorization server in the target domain accepts authorization grant JWTs issued by the authorization server in the originating domain. In addition, all entities in the originating domain that make cross-domain calls must be registered as OAuth 2.0 clients at the authorization server in the target domain.</p>
+<p>How these relationships are established, and the requirements for trust, are out of scope for this specification.</p>
+<p>However, the minimum requirements for establishing the cross-domain use case are as follows:</p>
+<ul>
+<li>
+<p>The authorization server in the originating domain MUST support OAuth 2.0 Token Exchange as defined in [<a href="#rfc8693">RFC8693</a>] and as profiled by this specification.</p>
+</li>
+<li>
+<p>The authorization server in the target domain MUST support JWT authorization grants as defined in [<a href="#rfc7523">RFC7523</a>] and as profiled by this specification.</p>
+</li>
+<li>
+<p>The key used by the authorization server in the originating domain MUST be known to the authorization server in the target domain.</p>
+</li>
+<li>
+<p>The issuer identifier of the authorization server in the originating domain MUST be known to the authorization server in the target domain and associated with the correct key and configuration.</p>
+</li>
+<li>
+<p>The issuer identifier of the authorization server in the target domain MUST be known to the authorization server in the originating domain and linked to the token exchange configuration for the target domain.</p>
+</li>
+<li>
+<p>All entities in the originating domain that may act as clients towards the target domain MUST be registered at the authorization server in the target domain.</p>
+<ul>
+<li>
+<p>How this registration is performed is out of scope for this specification. It may be done out of band via manual procedures, or through automatic client registration using OpenID Federation.</p>
+</li>
+<li>
+<p>An OAuth 2.0 entity in the originating domain MAY be named or identified differently in the target domain. In such cases, the authorization server in the originating domain MUST be aware of both identities when issuing the authorization grant JWT.</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>Also, there is no guarantee that the scopes used in the target domain have any meaning in the originating domain. Therefore, the authorization servers may need to maintain mappings of scopes and other rights, and define how to apply these control mechanisms when managing authorization across domain boundaries. See <a href="#scope-mappings-across-domains">Section 3.5.1</a> below.</p>
+<p><a name="user-content-3-3-token-exchange"></a></p>
+<h3>3.3. Token Exchange</h3>
+<p>Token exchange across domains differs from the intra-domain case in Section 2: the output is not an access token for the target protected resource, but an authorization grant in the form of a signed JWT that the client presents to the authorization server in the target domain to obtain an access token. The authorization server in the originating domain acts as an STS as per [<a href="#rfc8693">RFC8693</a>] and issues a JWT authorization grant suitable for use with the JWT bearer authorization grant defined in [<a href="#rfc7523">RFC7523</a>].</p>
+<p>Under this profile, the authorization server in the originating domain MUST issue a short-lived, one-time-use JWT that attests to the delegating user and the requesting client, and that is explicitly targeted at the authorization server in the target domain.</p>
+<p><a name="user-content-3-3-1-token-exchange-request"></a></p>
+<h4>3.3.1. Token Exchange Request</h4>
+<p>A client in the originating domain (or a protected resource acting as a client) MUST call the originating authorization server’s token endpoint with a token exchange request conformant to [<a href="#rfc8693">RFC8693</a>] with the following profile requirements:</p>
+<ul>
+<li>
+<p>The request MUST include:</p>
+<ul>
+<li>
+<p><code class="notranslate">grant_type</code> with a value of <code class="notranslate">urn:ietf:params:oauth:grant-type:token-exchange</code>.</p>
+</li>
+<li>
+<p><code class="notranslate">subject_token</code> containing an inbound token issued by the originating authorization server (see <a href="#3-3-2-inbound-token-requirements">Section 3.3.2</a>).</p>
+</li>
+<li>
+<p><code class="notranslate">subject_token_type</code> indicating the type of <code class="notranslate">subject_token</code>:</p>
+<ul>
+<li><code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code> for an access token, or</li>
+<li><code class="notranslate">urn:ietf:params:oauth:token-type:refresh_token</code> for a refresh token.</li>
+</ul>
+</li>
+<li>
+<p>A target authorization server indicator identifying the authorization server in the target domain. The client MUST supply one of <code class="notranslate">audience</code> and <code class="notranslate">resource</code>. See <a href="#the-resource-and-audience-parameters">Section 4.1</a> for further requirements.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>The client SHOULD include <code class="notranslate">requested_token_type</code> with a value of <code class="notranslate">urn:ietf:params:oauth:token-type:jwt</code> to explicitly request a JWT authorization grant as defined in [<a href="#rfc7523">RFC7523</a>].</p>
+<ul>
+<li>See also the requirements about "Servers supporting both use cases" in <a href="#3-3-3-processing-requirements">Section 3.3.3</a>.</li>
+</ul>
+</li>
+<li>
+<p>The client MAY use the <code class="notranslate">scope</code> parameter to specify particular scope(s) for the request.</p>
+<ul>
+<li>
+<p>In deployments where the subject (user) is the actual resource owner, the client MUST NOT request a scope that is not authorized by the user in relation to the presented <code class="notranslate">subject_token</code>. See <a href="#token-exchange-and-the-user-and-resource-owner-distinction">Section 4.3</a>.</p>
+</li>
+<li>
+<p>If the originating and target domains use different scope models, whether the supplied scope values are specific for the originating or target domain is deployment specific. See <a href="#scope-mapping-across-domains">Section 3.5.1</a>.</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>Client authentication at the token endpoint MUST follow [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>]. If <code class="notranslate">private_key_jwt</code> is used, the <code class="notranslate">iss</code> and <code class="notranslate">sub</code> of the client assertion MUST equal the client’s identifier registered at the originating authorization server.</p>
+<p><a name="user-content-3-3-2-inbound-token-requirements"></a></p>
+<h4>3.3.2. Inbound Token Requirements</h4>
+<p>This profile defines the following requirements for the <code class="notranslate">subject_token</code> used as input to the token exchange:</p>
+<ul>
+<li>
+<p>The <code class="notranslate">subject_token</code> MUST be either an access token or a refresh token issued by the originating authorization server to the requesting client.</p>
+</li>
+<li>
+<p>The token MUST be valid, not expired, and not revoked at the time of the request.</p>
+</li>
+<li>
+<p>The token MUST be bound to a user.</p>
+</li>
+</ul>
+<p>A requesting entity MUST NOT include a token that does not fulfil all the above requirements in a token exchange request.</p>
+<p><a name="user-content-3-3-3-processing-requirements"></a></p>
+<h4>3.3.3. Processing Requirements</h4>
+<p>When the originating authorization server receives a conformant token exchange request, it MUST:</p>
+<ol>
+<li>
+<p>Validate the <code class="notranslate">subject_token</code> according to <a href="#processing-requirements-for-a-subject-token">Section 4.2.2, Processing Requirements for a Subject Token</a>.</p>
+</li>
+<li>
+<p>Verify that the <code class="notranslate">subject_token</code> is user-bound. If not, the request MUST be rejected with <code class="notranslate">invalid_request</code>.</p>
+</li>
+<li>
+<p>Authenticate the client and verify it is authorized to request cross-domain token exchange for the indicated target authorization server.</p>
+</li>
+<li>
+<p>Verify that the target authorization server indicated by <code class="notranslate">audience</code>/<code class="notranslate">resource</code> is configured as a trusted peer and that key material and issuer identifiers are established as per <a href="#domain-trust-relationships-and-prerequisites">Section 3.2.1</a>. If not, the request MUST be rejected with <code class="notranslate">invalid_target</code> or <code class="notranslate">unauthorized_client</code>.</p>
+</li>
+<li>
+<p>Assert that <code class="notranslate">requested_token_type</code> is <code class="notranslate">urn:ietf:params:oauth:token-type:jwt</code>, or if it is omitted, apply the logic from "Servers supporting both use cases" below.</p>
+</li>
+</ol>
+<p>If the request is invalid, the server MUST respond with an error per [<a href="#rfc8693">RFC8693</a>]. Where applicable, the following errors SHOULD be used: <code class="notranslate">invalid_request</code>, <code class="notranslate">invalid_scope</code>, <code class="notranslate">unauthorized_client</code>, <code class="notranslate">invalid_target</code>, and <code class="notranslate">server_error</code>.</p>
+<p><strong>Servers supporting both use cases:</strong> An authorization server that supports both the intra-domain exchange in <a href="#protected-resource-acting-as-an-client">Section 2</a> and the cross-domain exchange in this section MUST use the <code class="notranslate">requested_token_type</code> parameter to disambiguate the requested behaviour:</p>
+<p>If <code class="notranslate">requested_token_type</code> is set to <code class="notranslate">urn:ietf:params:oauth:token-type:access_token</code>, the server MUST process the request under the rules of <a href="#protected-resource-acting-as-an-client">Section 2</a>, and if <code class="notranslate">requested_token_type</code> is set to <code class="notranslate">urn:ietf:params:oauth:token-type:jwt</code>, the server MUST process the request under the rules of this section.</p>
+<p>Clients SHOULD always supply <code class="notranslate">requested_token_type</code>. If <code class="notranslate">requested_token_type</code> is omitted, the server MAY infer intent from the target indicator, where the cross-domain case will be chosen if the target identifies an authorization server, and the intra-domain case will be chosen if the target identifies a protected resource within the same domain.</p>
+<p>If the intent cannot be determined unambiguously, the server MUST reject the request with <code class="notranslate">invalid_request</code>.</p>
+<p><a name="user-content-token-exchange-response-and-jwt-contents"></a></p>
+<h4>3.3.4. Token Exchange Response and JWT Contents</h4>
+<p>The token exchange response MUST be a JSON object as defined by [<a href="#rfc8693">RFC8693</a>] with these profile requirements:</p>
+<ul>
+<li>
+<p>The JWT authorization grant MUST be returned in the <code class="notranslate">access_token</code> member.</p>
+</li>
+<li>
+<p><code class="notranslate">issued_token_type</code> MUST be <code class="notranslate">urn:ietf:params:oauth:token-type:jwt</code>.</p>
+</li>
+<li>
+<p><code class="notranslate">token_type</code> MUST be included and set to <code class="notranslate">N_A</code>. The JWT authorization grant is not a bearer token usable at a resource server.</p>
+</li>
+<li>
+<p><code class="notranslate">expires_in</code> SHOULD be included and reflect the remaining lifetime of the JWT authorization grant.</p>
+</li>
+<li>
+<p>The <code class="notranslate">scope</code> parameter MUST be provided if the scopes included in the issued JWT differ from those requested by the client; otherwise, the parameter is OPTIONAL.</p>
+</li>
+</ul>
+<p>The JWT returned in <code class="notranslate">access_token</code> MUST comply with Section 3 of [<a href="#rfc7523">RFC7523</a>] and this profile.</p>
+<ul>
+<li>
+<p><code class="notranslate">iss</code> MUST be the issuer identifier of the originating authorization server.</p>
+</li>
+<li>
+<p><code class="notranslate">sub</code> MUST be the end-user identifier, chained from the inbound token, or a transcription of the identity according to <a href="#transcription-of-user-identity-claims">Section 3.5.2</a>.</p>
+</li>
+<li>
+<p><code class="notranslate">aud</code> MUST be set to the issuer identifier of the target authorization server.</p>
+<ul>
+<li>An additional audience value containing the token endpoint URL of the target authorization server MAY be included to accommodate different interpretations of how audience values are handled.</li>
+</ul>
+</li>
+<li>
+<p><code class="notranslate">jti</code> MUST be present and unique for each issuance.</p>
+</li>
+<li>
+<p><code class="notranslate">exp</code> MUST be included. The <code class="notranslate">iat</code> and <code class="notranslate">nbf</code> claims SHOULD also be included to support replay protection and precise validity handling. The validity period MUST be short. As an example, deployments often use no more than 5 minutes.</p>
+</li>
+<li>
+<p><code class="notranslate">client_id</code> MUST identify the requesting client as registered at the target authorization server.</p>
+<ul>
+<li>If the client has a different identifier in the originating domain, that identifier SHOULD appear as the first-level <code class="notranslate">sub</code> inside <code class="notranslate">act</code>, preserving traceability without affecting authorization.</li>
+</ul>
+</li>
+<li>
+<p><code class="notranslate">act</code> SHOULD be included to represent the chain of actors as defined in [<a href="#rfc8693">RFC8693</a>]. The first-level <code class="notranslate">sub</code> under <code class="notranslate">act</code> SHOULD identify the client as known in the originating domain. Additional nested actors from earlier hops SHOULD also be preserved.</p>
+<ul>
+<li>The contents of <code class="notranslate">act</code> MUST NOT be used for authorization decisions. It is only for accountability and traceability.</li>
+</ul>
+</li>
+<li>
+<p>Authentication context. If present in the inbound token, <code class="notranslate">acr</code>, <code class="notranslate">amr</code>, <code class="notranslate">auth_time</code> and similar claims MUST be copied into the JWT authorization grant.</p>
+</li>
+<li>
+<p>If scope information needs to be provided, for example, if the originating subject token contains scopes or if scopes are included in the token exchange request, the <code class="notranslate">scope</code> claim SHOULD be included and contain the scopes that the calling entity is authorized for.</p>
+<ul>
+<li>If the originating and target domains use different scope models, whether the scope values included are specific to the originating or target domain is deployment specific. See <a href="#scope-mapping-across-domains">Section 3.5.1</a>.</li>
+</ul>
+</li>
+<li>
+<p>Additional claims MAY be included based on local policies or bilateral agreements between the originating and target domains.</p>
+</li>
+</ul>
+<p>The JWT authorization grant MUST be signed by the originating authorization server using a key that the target authorization server has associated with the originating issuer (<a href="#domain-trust-relationships-and-prerequisites">Section 3.2.1</a>). The JWT authorization grant MAY be encrypted if both domains have explicitly configured encryption keys and policies.</p>
+<p><a name="user-content-authorization-grant-requirements"></a></p>
+<h3>3.4. Authorization Grant Requirements</h3>
+<p>This section profiles how the client uses the JWT authorization grant at the target authorization server, and how the target authorization server processes it and issues an access token.</p>
+<p><a name="user-content-access-token-request-according-to-rfc7523"></a></p>
+<h4>3.4.1. Access Token Request According to RFC7523</h4>
+<p>The HTTP request to the target authorization server’s token endpoint MUST follow Section 2.1 of [<a href="#rfc7523">RFC7523</a>] with the following clarifications and additions.</p>
+<ul>
+<li>
+<p>The client MUST present the JWT authorization grant to the token endpoint of the target authorization server using the JWT bearer grant defined in [<a href="#rfc7523">RFC7523</a>].</p>
+<ul>
+<li>
+<p><code class="notranslate">grant_type</code> is set to <code class="notranslate">urn:ietf:params:oauth:grant-type:jwt-bearer</code>.</p>
+</li>
+<li>
+<p><code class="notranslate">assertion</code> is set to the JWT authorization grant produced according to the requirements stated in <a href="#token-exchange-response-and-jwt-contents">Section 3.3.4</a>.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>The client MUST authenticate to the target token endpoint according to [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>]. If <code class="notranslate">private_key_jwt</code> is used, the <code class="notranslate">iss</code> and <code class="notranslate">sub</code> of the client assertion MUST equal the client’s identifier as registered at the target authorization server. This identifier MAY differ from the identifier used in the originating domain.</p>
+</li>
+<li>
+<p>The client MAY include <code class="notranslate">scope</code> to request specific scopes in the target domain.</p>
+</li>
+<li>
+<p>The client MAY include a <code class="notranslate">resource</code> parameter to indicate the intended protected resource in the target domain, if the target authorization server supports [<a href="#rfc8707">RFC8707</a>]. If used, the requirements in Section 7.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] MUST be followed.</p>
+<ul>
+<li>The <code class="notranslate">audience</code> parameter MUST NOT be used in JWT bearer grant requests (it is a special-purpose parameter for OAuth 2.0 Token Exchange).</li>
+</ul>
+</li>
+</ul>
+<p><a name="user-content-processing-of-jwt-authorization-grant"></a></p>
+<h4>3.4.2. Processing of JWT Authorization Grant</h4>
+<p>When the target authorization server receives a JWT bearer grant request as described in <a href="#access-token-request-according-to-rfc7523">Section 3.4.1</a>, it MUST process the request as follows:</p>
+<ol>
+<li>
+<p>Client authentication – The client MUST be authenticated in accordance with Section 8.3 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>].</p>
+</li>
+<li>
+<p>Assertion validation – The server MUST validate the JWT assertion in accordance with [<a href="#rfc7523">RFC7523</a>]. This includes verifying the digital signature, issuer, subject, audience, <code class="notranslate">jti</code> (for replay protection), and the <code class="notranslate">iat</code>, <code class="notranslate">nbf</code>, and <code class="notranslate">exp</code> claims. The issuer MUST correspond to a trusted originating authorization server, and the signing key MUST be bound to that issuer as described in <a href="#domain-trust-relationships-and-prerequisites">Section 3.2.1</a>. The <code class="notranslate">aud</code> claim of the JWT MUST contain the issuer identifier for the target authorization server.</p>
+</li>
+<li>
+<p>Scope and resource determination – The server MUST determine the scopes and target resources for the token to be issued. This decision MUST take into account any <code class="notranslate">resource</code> and <code class="notranslate">scope</code> parameters in the request, values carried in the assertion, and locally configured scope or resource mappings as described in <a href="#scope-mappings-across-domains">Section 3.5.1</a>.</p>
+</li>
+<li>
+<p>Subject determination – The server MUST determine the end-user identifier to be carried forward from the assertion for identity chaining. If needed, user identity transcription MAY be applied as described in <a href="#transcription-of-user-identity-claims">Section 3.5.2</a>.</p>
+</li>
+<li>
+<p>Client identity determination – The server MUST determine the client identifier as registered in the target domain for the requesting entity.</p>
+</li>
+<li>
+<p>Actor chain handling – If the assertion contains an <code class="notranslate">act</code> claim, all actor values from the assertion MUST be preserved. The target authorization server MAY add an additional actor to reflect the registered client in the target domain. The <code class="notranslate">act</code> claim MUST NOT be used for authorization decisions.</p>
+</li>
+<li>
+<p>Policy enforcement – The server MUST enforce local policy, including user consent, scope minimisation, and resource restrictions. If requested scopes cannot be satisfied, the request MUST be rejected with the <code class="notranslate">invalid_scope</code> error.</p>
+</li>
+<li>
+<p>Issuance decision – After successful processing, the server MUST issue an access token and return a response as defined in <a href="#3-4-3-token-response">Section 3.4.3</a>.</p>
+</li>
+</ol>
+<p>If any of the above checks fail, the authorization server MUST reject the request and return an error response in accordance with [<a href="#rfc7523">RFC7523</a>] and [<a href="#rfc6749">RFC6749</a>].</p>
+<p><a name="user-content-3-4-3-token-response"></a></p>
+<h4>3.4.3. Token Response</h4>
+<p>The access token response MUST follow [<a href="#rfc6749">RFC6749</a>] and [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>]. The access token issued by the target authorization server MUST follow the requirements stated in Section 6.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>], with the following additions and clarifications:</p>
+<ul>
+<li>
+<p>If the JWT authorization grant contained an <code class="notranslate">act</code> claim, this claim MAY be included in the resulting access token. If so, all actor values MUST be preserved in the issued access token. The target authorization server MAY add an additional actor to represent the registered client in the target domain.</p>
+</li>
+<li>
+<p>Proof-of-possession policies in the target domain MUST be observed. If DPoP per [<a href="#rfc9449">RFC9449</a>] is required, the access token MUST be bound accordingly and MUST NOT be issued as a simple bearer token.</p>
+</li>
+</ul>
+<p>Furthermore, the token response MUST NOT include a refresh token unless explicitly permitted by target-domain policy. If a refresh token is issued, its use MUST remain confined to the target domain.</p>
+<p><a name="user-content-additional-features-and-advanced-topics"></a></p>
+<h3>3.5. Additional Features and Advanced Topics</h3>
+<p><a name="user-content-scope-mapping-across-domains"></a></p>
+<h4>3.5.1. Scope Mapping Across Domains</h4>
+<p>Scope values used within a domain may be specific to that domain and have no meaning outside it. This must be considered in the cross-domain token exchange case, where the authorization server in the originating domain issues the JWT containing the identity of the user along with the client authorizations (scopes), for the authorization server in the target domain to consume.</p>
+<p>This profile does not specify how such scope mapping should be performed, other than that deployments MUST define a deterministic mapping from originating-domain entitlements to target-domain scopes. Whether this mapping is maintained in the originating or target domain is deployment specific.</p>
+<p>An alternative to domain-specific scopes with mappings handled by an authorization server is an approach where the originating domain incorporates relevant scopes from the target domain into its own security and authorization model, and clients within the originating domain request those scopes directly.</p>
+<p><a name="user-content-transcription-of-user-identity-claims"></a></p>
+<h4>3.5.2. Transcription of User Identity Claims</h4>
+<p>Subject identifiers or other relevant user identity claims may differ between domains. For example, a user may be identified differently in the originating domain than in the target domain. In such cases, either the authorization server in the originating domain or the authorization server in the target domain may perform a transcription between identities. Which server performs this depends on which party has knowledge of the required mappings.</p>
+<p>In cross-domain use cases, it may also be necessary to prevent the disclosure of a user’s actual identity in the target domain. In such cases, it may be sufficient for the protected resource to know only that the user originates from the originating domain. The authorization server in the originating domain is responsible for replacing the actual user identity (for example, the <code class="notranslate">sub</code> claim) with a pseudonymous value. If this feature is used, the originating authorization server MUST be able to map the pseudonym back to the actual identity value, for example for out-of-band investigations of potential attacks or fraud.</p>
+<p><a name="user-content-3-6-examples"></a></p>
+<h3>3.6. Examples</h3>
+<p>This section provides a non-normative, end-to-end illustration of the cross-domain token exchange flow as described in the first sequence diagram in <a href="#3-2-solution-overview">Section 3.2</a>.</p>
+<p>The example uses the following identifiers:</p>
+<ul>
+<li>Authorization server in domain A (originating domain): <code class="notranslate">https://as.domain-a.com</code></li>
+<li>Application (client) in domain A: <code class="notranslate">https://app.domain-a.com</code></li>
+<li>Protected resource in domain A: <code class="notranslate">https://api.domain-a.com</code></li>
+<li>Authorization server in domain B (target domain): <code class="notranslate">https://as.domain-b.com</code></li>
+<li>Protected resource in domain B: <code class="notranslate">https://api.domain-b.com</code></li>
+<li>User identity (subject): <code class="notranslate">user-1234</code></li>
+</ul>
+<p>For readability, long values are folded and signatures are abbreviated.</p>
+<p>Note on scopes across domains: In this example, the originating domain uses the scope <code class="notranslate">a-api-read</code> and the target domain uses the scope <code class="notranslate">b-api-read</code>. This reflects that scopes are domain-specific and require mapping as described in <a href="#scope-mappings-across-domains">Section 3.5.1</a>.</p>
+<p>Furthermore, for this example, the meaning of <code class="notranslate">a-api-read</code> is that the possession of it grants access to API A and API B (and possibly other API:s in B). In domain B, the scope <code class="notranslate">b-api-read</code> grants access to API B.</p>
+<p><strong>Inbound Access Token:</strong></p>
+<p>The decoded access token JWT that the application in domain A has in its possession is shown below.</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.domain-a.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: [<span class="pl-s"><span class="pl-pds">"</span>https://api.domain-a.com<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>https://as.domain-a.com<span class="pl-pds">"</span></span>],
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"acr"</span>: <span class="pl-s"><span class="pl-pds">"</span>http://id.elegnamnden.se/loa/1.0/loa3<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.domain-a.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>a-api-read a-api-write<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>inbound-app-123<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1696500000</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1696500000</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1696503600</span>
+}</pre></div>
+<p>As shown in the JWT, the access token was issued for use at <code class="notranslate">https://api.domain-a.com</code> (a protected resource within domain A). The authorization server has also added itself as a valid audience (<code class="notranslate">https://as.domain-a.com</code>). See <a href="#issuing-a-token-usable-for-token-exchange">Section 4.2.1, Issuing a Token Usable for Token Exchange</a>.</p>
+<p>In this example, the <code class="notranslate">acr</code> claim is included to indicate the authentication context under which the subject (user) was authenticated. In a real-life scenario, the access token may contain additional claims representing the user identity and authentication.</p>
+<p>It is worth noting that the access token contains two scopes: <code class="notranslate">a-api-read</code> and <code class="notranslate">a-api-write</code>.</p>
+<p><strong>Token Exchange Request:</strong></p>
+<p>Next, the application needs to make a cross-domain call to domain B, and therefore submits a token exchange request according to <a href="#3-3-1-token-exchange-request">Section 3.3.1</a> to the authorization server in its own domain.</p>
+<pre class="notranslate"><code class="notranslate">POST /token HTTP/1.1
+Host: as.domain-a.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange&amp;
+subject_token=eyJhbGciOi...inbound-app-123...&amp;
+subject_token_type=urn:ietf:params:oauth:token-type:access_token&amp;
+audience=https%3A%2F%2Fas.domain-b.com&amp;
+scope=a-api-read&amp;
+client_id=https%3A%2F%2Fapp.domain-a.com&amp;
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&amp;
+client_assertion=eyJhbGciOi...
+</code></pre>
+<ul>
+<li>
+<p>The <code class="notranslate">subject_token</code> provided is the inbound access token shown above.</p>
+</li>
+<li>
+<p>The <code class="notranslate">audience</code> parameter is set to the issuer identifier of the authorization server in domain B.</p>
+</li>
+<li>
+<p>The <code class="notranslate">scope</code> is set to <code class="notranslate">a-api-read</code>. This indicates that the application is instructing the authorization server not to include the <code class="notranslate">a-api-write</code> scope from the inbound access token in the resulting JWT. <em>This filtering could also be performed by the authorization server before issuing the JWT.</em></p>
+</li>
+<li>
+<p>The <code class="notranslate">client_assertion</code> contains the <code class="notranslate">private_key_jwt</code> assertion that the application uses to authenticate the call.</p>
+</li>
+</ul>
+<p><strong>Token Exchange Response with JWT Authorization Grant:</strong></p>
+<p>The authorization server in domain A processes the token exchange request according to <a href="#3-3-3-processing-requirements">Section 3.3.3</a> and, if permitted by the token exchange policy for domain B, issues a JWT authorization grant as specified in <a href="#token-exchange-response-and-jwt-contents">Section 3.3.4</a>.</p>
+<p>The response:</p>
+<pre class="notranslate"><code class="notranslate">HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+Pragma: no-cache
+
+{
+  "access_token": "eyJhbGciOi...jwt-authorization-grant...",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_type": "N_A",
+  "expires_in": 300,
+  "scope": "a-api-read"
+}
+</code></pre>
+<p>The decoded JWT authorization grant (the value of the response <code class="notranslate">access_token</code> field):</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.domain-a.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.domain-b.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"acr"</span>: <span class="pl-s"><span class="pl-pds">"</span>http://id.elegnamnden.se/loa/1.0/loa3<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.domain-a.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>a-api-read<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>grant-456<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1696500000</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1696500000</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1696500300</span>,
+  <span class="pl-ent">"act"</span>: {
+    <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.domain-a.com<span class="pl-pds">"</span></span>
+  }
+}</pre></div>
+<ul>
+<li>
+<p>The <code class="notranslate">sub</code> and <code class="notranslate">acr</code> claims from the initial access token are included in the JWT. Additional claims regarding the user authentication process and user identity may be included in real-life scenarios.</p>
+<ul>
+<li>Note that the <code class="notranslate">sub</code> value is unchanged from the inbound access token. This means that no transcription of user identity claims, as described in <a href="#transcription-of-user-identity-claims">Section 3.5.2</a>, was performed.</li>
+</ul>
+</li>
+<li>
+<p>The <code class="notranslate">scope</code> claim contains the value <code class="notranslate">a-api-read</code>. This means that no scope mapping, as described in <a href="#scope-mapping-across-domains">Section 3.5.1</a>, was performed by authorization server A. In this case, authorization server B must maintain a scope mapping to translate <code class="notranslate">a-api-read</code> into a scope value meaningful in domain B.</p>
+<ul>
+<li>Note: It is also possible for the authorization server in domain B to perform this mapping. Which domain carries out scope mappings is deployment-specific.</li>
+</ul>
+</li>
+<li>
+<p>The <code class="notranslate">scope</code> claim does not include the <code class="notranslate">a-api-write</code> value that was present in the inbound access token. In this example, the application (client) requested only the <code class="notranslate">a-api-read</code> scope in the token exchange request. Other reasons why a claim might be removed from the original authorization include that the client is not entitled to use it in cross-domain scenarios, or that the claim has no mapping in the target domain.</p>
+</li>
+<li>
+<p>No <code class="notranslate">resource</code> parameter is included, since the corresponding token exchange request did not specify any protected resource in domain B.</p>
+</li>
+</ul>
+<p><strong>Access Token Request to Authorization Server in Domain B:</strong></p>
+<p>Next, the application in domain A acts as an OAuth 2.0 client towards the authorization server in domain A, and sends a token request according to <a href="#access-token-request-according-to-rfc7523">Section 3.4.1</a>, including the JWT authorization grant.</p>
+<pre class="notranslate"><code class="notranslate">POST /token HTTP/1.1
+Host: as.domain-b.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&amp;
+assertion=eyJhbGciOi...grant-456...&amp;
+scope=b-api-read&amp;
+client_id=https%3A%2F%2Fapp.domain-a.com&amp;
+resource=https%3A%2F%2Fapi.domain-b.com&amp;
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&amp;
+client_assertion=eyJhbGciOi...
+</code></pre>
+<ul>
+<li>
+<p>The domain A application (client) requests the scope <code class="notranslate">b-api-read</code>, which is a scope value specific to domain B. Whether the client is authorized to request this scope is determined by the authorization server in domain B, based on translating the domain A–specific scopes received in the JWT authorization grant and applying the token exchange policies configured for domain A.</p>
+</li>
+<li>
+<p>The domain A application (client) specifies the intended protected resource by supplying its identifier in the <code class="notranslate">resource</code> parameter.</p>
+</li>
+</ul>
+<p><strong>Access Token Response from Authorization Server in Domain B:</strong></p>
+<p>When the authorization server in domain B receives the token request, it processes it according to <a href="#processing-of-jwt-authorization-grant">Section 3.4.2</a> before issuing a token response containing an access token, as specified in <a href="#3-4-3-token-response">Section 3.4.3</a>.</p>
+<p>The token response:</p>
+<pre class="notranslate"><code class="notranslate">HTTP/1.1 200 OK
+Content-Type: application/json
+Cache-Control: no-store
+Pragma: no-cache
+
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImJiLWtpZC0wMDEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FzLmRvbWFpbi1iLmNvbSIsImF1ZCI6Imh0dHBzOi8vYXBpLmRvbWFpbi1iLmNvbSIsInN1YiI6InVzZXItMTIzNCIsImNsaWVudF9pZCI6Imh0dHBzOi8vYXBwLmRvbWFpbi1hLmNvbSIsInNjb3BlIjoiYi1hcGktcmVhZCIsImp0aSI6Im5ldy1iLTc4OSIsIm5iZiI6MTY5NjUwMDMwMCwiaWF0IjoxNjk2NTAwMzAwLCJleHAiOjE2OTY1MDM5MDB9.au3P...sig",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "b-api-read"
+}
+</code></pre>
+<p>The decoded access token:</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.domain-b.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"aud"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://api.domain-b.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.domain-a.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"https://claim.domainb.com/custom"</span>: <span class="pl-s"><span class="pl-pds">"</span>foobar<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>b-api-read<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"act"</span>: {
+    <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://app.domain-a.com<span class="pl-pds">"</span></span>
+  },
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>new-b-789<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1696500300</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1696500300</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1696503900</span>
+}</pre></div>
+<ul>
+<li>
+<p>In the access token above, the <code class="notranslate">acr</code> claim is not included. For this example, we assume that this information was only relevant to the authorization server in domain B in order to permit the token exchange.</p>
+</li>
+<li>
+<p>To illustrate how the authorization server that approved the JWT authorization request may add claims specific to its domain resources, the claim <code class="notranslate">https://claim.domainb.com/custom</code> is included.</p>
+</li>
+</ul>
+<p>Given this access token, the application in domain A can now call the protected resource <code class="notranslate">https://api.domain-b.com</code> in domain B.</p>
+<p><a name="user-content-general-token-exchange-requirements-and-considerations"></a></p>
+<h2>4. General Token Exchange Requirements and Considerations</h2>
+<p>This section defines requirements and considerations that are common to both use cases profiled in this specification.</p>
+<p><a name="user-content-the-resource-and-audience-parameters"></a></p>
+<h3>4.1. The Resource and Audience Parameters</h3>
+<p>The <code class="notranslate">resource</code> parameter, as defined in [<a href="#rfc8707">RFC8707</a>], and the <code class="notranslate">audience</code> parameter, as defined in [<a href="#rfc8693">RFC8693</a>], are two separate but related ways of indicating the target service for a token exchange operation.</p>
+<p>[<a href="#rfc8693">RFC8693</a>] states that the <code class="notranslate">resource</code> parameter should be used when the client does not know the logical name of the target service, and that the <code class="notranslate">audience</code> parameter should be used when such a logical name is known to the client.</p>
+<p>To promote interoperability, this profile specifies the following requirements:</p>
+<ul>
+<li>
+<p>If the <code class="notranslate">resource</code> parameter is used, the requirements from Section 7.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] MUST be followed.</p>
+</li>
+<li>
+<p>If the <code class="notranslate">audience</code> parameter is used to indicate a protected resource, the Resource Identifier of the resource as defined in Section 4.3 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] MUST be used.</p>
+</li>
+<li>
+<p>If the <code class="notranslate">audience</code> parameter is used to indicate an authorization server (as in the use case defined in <a href="#accessing-protected-resources-in-other-domains">Section 3</a>), the issuer identifier of the authorization server MUST be used.</p>
+</li>
+<li>
+<p>An entity compliant with this profile MUST NOT use both the <code class="notranslate">resource</code> and <code class="notranslate">audience</code> parameters in the same request.</p>
+</li>
+<li>
+<p>If a token exchange request includes a <code class="notranslate">scope</code> value from which the authorization server can deduce the target service, both the <code class="notranslate">resource</code> and <code class="notranslate">audience</code> parameters MAY be omitted.</p>
+</li>
+</ul>
+<p><a name="user-content-subject-token-requirements-and-considerations"></a></p>
+<h3>4.2. Subject Token Requirements and Considerations</h3>
+<p>The token supplied as a <code class="notranslate">subject_token</code> in a token exchange request, for the use cases profiled in this specification, is either an access token or a refresh token.</p>
+<p>This section defines the requirements for issuing access tokens and refresh tokens that may later be used in a token exchange request, as well as the requirements that an authorization server functioning as a <em>Security Token Service</em> MUST apply when processing such a request.</p>
+<p><a name="user-content-issuing-a-token-usable-for-token-exchange"></a></p>
+<h4>4.2.1. Issuing a Token Usable for Token Exchange</h4>
+<p>This section specifies requirements and considerations for authorization servers that issue tokens which may later be used as input in a token exchange request to the same authorization server.</p>
+<ul>
+<li>
+<p>An authorization server issuing an access token intended for later use in a token exchange request SHOULD add its own issuer identifier among the audience (<code class="notranslate">aud</code>) values of the access token.</p>
+<ul>
+<li>If the sole purpose of the access token is to be used in a token exchange, for example in cross-domain scenarios, the authorization server’s issuer identifier MUST be included in the <code class="notranslate">aud</code> claim as the only value.</li>
+</ul>
+</li>
+<li>
+<p>An authorization server issuing an access token for later use in a token exchange request MAY include the <code class="notranslate">may_act</code> claim, as defined in Section 4.4 of [<a href="#rfc8693">RFC8693</a>], where this claim contains a <code class="notranslate">sub</code> claim equal to the client requesting the access token (<code class="notranslate">client_id</code>).</p>
+</li>
+<li>
+<p>For the access token requirements above, the following MUST hold: If a refresh token is issued together with an access token, the representation of the access token MUST also be valid for the corresponding refresh token.</p>
+</li>
+</ul>
+<p>Example:</p>
+<div class="highlight highlight-source-json"><pre class="notranslate">{
+  <span class="pl-ent">"aud"</span>: [<span class="pl-s"><span class="pl-pds">"</span>https://api.example.com<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>],
+  <span class="pl-ent">"iss"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://as.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>user-1234<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"client_id"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://client.example.com<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"may_act"</span>: {
+    <span class="pl-ent">"sub"</span>: <span class="pl-s"><span class="pl-pds">"</span>https://client.example.com<span class="pl-pds">"</span></span>
+  },
+  <span class="pl-ent">"scope"</span>: <span class="pl-s"><span class="pl-pds">"</span>api-read<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"jti"</span>: <span class="pl-s"><span class="pl-pds">"</span>8ujkdsna7<span class="pl-pds">"</span></span>,
+  <span class="pl-ent">"nbf"</span>: <span class="pl-c1">1696500000</span>,
+  <span class="pl-ent">"iat"</span>: <span class="pl-c1">1696500000</span>,
+  <span class="pl-ent">"exp"</span>: <span class="pl-c1">1696503600</span>
+}</pre></div>
+<p><a name="user-content-processing-requirements-for-a-subject-token"></a></p>
+<h4>4.2.2. Processing Requirements for a Subject Token</h4>
+<p>This section specifies the requirements for how an authorization server processing a token exchange request MUST verify the subject token (<code class="notranslate">subject_token</code>) provided in the request.</p>
+<ul>
+<li>
+<p>An access token that is not signed in accordance with the requirements in Section 6.1 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] MUST be rejected.</p>
+</li>
+<li>
+<p>An access token that was not issued by the processing authorization server MUST be rejected.</p>
+</li>
+<li>
+<p>The authorization server MUST verify that the token (access or refresh) has not expired.</p>
+</li>
+<li>
+<p>The authorization server MUST verify that the token has not been revoked or otherwise invalidated.</p>
+</li>
+<li>
+<p>The token MUST contain a <code class="notranslate">client_id</code> claim whose value matches the requesting entity's client identifier. If not, the request MUST be rejected.</p>
+</li>
+<li>
+<p>An access token obtained through the client credentials grant, or any other grant that does not involve a user, MUST be rejected. Such tokens lack user identity and therefore cannot support identity chaining.</p>
+</li>
+<li>
+<p>If the authorization server issues tokens with its own issuer identifier among the audience values (see <a href="#issuing-a-token-usable-for-token-exchange">Section 4.2.1</a>), the token MUST be rejected if that issuer identifier does not appear in the <code class="notranslate">aud</code> claim.</p>
+</li>
+<li>
+<p>If the authorization server issues tokens with a <code class="notranslate">may_act</code> claim (see <a href="#issuing-a-token-usable-for-token-exchange">Section 4.2.1</a>), the <code class="notranslate">sub</code> claim inside <code class="notranslate">may_act</code> MUST equal the requesting entity's client identifier. Otherwise, the request MUST be rejected.</p>
+</li>
+</ul>
+<p>Note: When a refresh token is supplied as a <code class="notranslate">subject_token</code>, its underlying representation, based on the original authorization, is verified against the requirements above.</p>
+<p><a name="user-content-token-exchange-and-the-user-and-resource-owner-distinction"></a></p>
+<h3>4.3. Token Exchange and the User and Resource Owner Distinction</h3>
+<p>Section 1.5 of [<a href="#ena-oauth2-profile">Ena.OAuth2.Profile</a>] describes the distinction between the typical OAuth 2.0 usage, where the user is the resource owner and delegates access to a client for a protected resource, and cases where the OAuth authorization code flow is used even though the user is not the owner of the protected resource.</p>
+<p>The major difference between these two OAuth usages lies in what happens at the authorization server when a client sends an authorization request:</p>
+<ul>
+<li>
+<p>In deployments where the user is the actual resource owner, the authorization server first authenticates the user and then asks for the user’s consent<sup>*</sup> to grant the requesting client access to the protected resource (owned by the user). Scopes are often used to represent the type of access that is requested and granted.<br><br><br>
+In this case, the resulting access token represents the rights that the user has delegated to the client for a particular resource.</p>
+</li>
+<li>
+<p>In deployments where the user is <strong>not</strong> the resource owner, the authorization server also authenticates the user, but then performs an authorization process to determine whether the user should be allowed to use the client to access the protected resource. Scopes may also be used to represent the type of access that is requested and granted.<br><br><br>
+In this case, the resulting access token represents the rights that the authorization server has granted to the user for using the client to access a particular protected resource.</p>
+</li>
+</ul>
+<p>Given these distinctions, this profile defines the following requirements for token exchange requests:</p>
+<ul>
+<li>
+<p>In deployments where the user is the actual resource owner:</p>
+<ul>
+<li>The authorization server MUST NOT issue access tokens or authorization grant JWTs containing scope values that are not represented in the supplied subject token, and therefore not authorized by the resource owner.</li>
+</ul>
+</li>
+<li>
+<p>In deployments where the user is <strong>not</strong> the resource owner:</p>
+<ul>
+<li>The authorization server MAY issue access tokens or authorization grant JWTs containing additional scope values (that is, other than those represented in the provided subject token), provided that the user and requesting client are authorized for these scopes. This is permitted because, in these use cases, there is no initial user consent to consider.</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>[*]: User consent may be either <em>explicit</em>, meaning that the user gives consent through a dialogue at the authorization server, or <em>implicit</em>, meaning that the consent is based on a previously accepted user agreement or similar.</p>
+</blockquote>
+<p><a name="user-content-references"></a></p>
+<h2>5. References</h2>
+<p><a name="user-content-normative-references"></a></p>
+<h3>5.1. Normative References</h3>
+<p><a name="user-content-rfc2119"></a><br>
+<strong>[RFC2119]</strong></p>
+<blockquote>
+<p><a href="https://www.ietf.org/rfc/rfc2119.txt" rel="nofollow">Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", March 1997</a>.</p>
+</blockquote>
+<p><a name="user-content-rfc6749"></a><br>
+<strong>[RFC6749]</strong></p>
+<blockquote>
+<p><a href="https://tools.ietf.org/html/rfc6749" rel="nofollow">Hardt, D., "The OAuth 2.0 Authorization Framework", RFC 6749, DOI 10.17487/RFC6749, October 2012</a>.</p>
+</blockquote>
+<p><a name="user-content-rfc7523"></a><br>
+<strong>[RFC7523]</strong></p>
+<blockquote>
+<p><a href="https://datatracker.ietf.org/doc/html/rfc7523" rel="nofollow">Jones, M., Campbell, B., and C. Mortimore, "JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants", RFC 7523, DOI 10.17487/RFC7523, May 2015</a>.</p>
+</blockquote>
+<p><a name="user-content-rfc8693"></a><br>
+<strong>[RFC8693]</strong></p>
+<blockquote>
+<p><a href="https://www.rfc-editor.org/info/rfc8693" rel="nofollow">Jones, M., Campbell, B., and D. Waite, "OAuth 2.0 Token Exchange", RFC 8693, DOI 10.17487/RFC8693, January 2020</a>.</p>
+</blockquote>
+<p><a name="user-content-rfc8707"></a><br>
+<strong>[RFC8707]</strong></p>
+<blockquote>
+<p><a href="https://datatracker.ietf.org/doc/html/rfc8707" rel="nofollow">Campbell, B., Bradley, J., and H. Tschofenig, "Resource Indicators for OAuth 2.0", RFC 8707, DOI 10.17487/RFC8707, February 2020</a>.</p>
+</blockquote>
+<p><a name="user-content-rfc9449"></a><br>
+<strong>[RFC9449]</strong></p>
+<blockquote>
+<p><a href="https://www.rfc-editor.org/info/rfc9449" rel="nofollow">Fett, D., Campbell, B., Bradley, J., Lodderstedt, T., Jones, M., and D. Waite, "OAuth 2.0 Demonstrating Proof of Possession (DPoP)", RFC 9449, DOI 10.17487/RFC9449, September 2023</a>.</p>
+</blockquote>
+<p><a name="user-content-ena-oauth2-profile"></a><br>
+<strong>[Ena.OAuth2.Profile]</strong></p>
+<blockquote>
+<p><a href="https://ena-infrastructure.github.io/specifications/ena-oauth2-profile.html" rel="nofollow">Ena OAuth 2.0 Interoperability Profile</a></p>
+</blockquote>
+<p><a name="user-content-informational-references"></a></p>
+<h3>5.2. Informational References</h3>
+<p><a name="user-content-draft-id-chaining"></a><br>
+<strong>[Draft.ID-Chaining]</strong></p>
+<blockquote>
+<p><a href="https://www.ietf.org/archive/id/draft-ietf-oauth-identity-chaining-06.html" rel="nofollow">Schwenkschuster, A., Kasselmann, P., Burgin, K., Jenkins, M., and B. Campbell, "OAuth Identity and Authorization Chaining Across Domains", draft-ietf-oauth-identity-chaining-06, September 2025</a>.</p>
+</blockquote>  </article>
+
+  <!-- Mermaid runtime -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <script>
+    // ---- 1) Normalize GitHub "user-content-" anchors so #introduction works ----
+    (function normalizeAnchors() {
+      // For <a name="user-content-foo"> → add id="foo" on that <a>
+      document.querySelectorAll('a[name^="user-content-"]').forEach(function(a){
+        var name = a.getAttribute('name');
+        if (!name) return;
+        var plain = name.replace(/^user-content-/, '');
+        // Add an id alias (safe even if duplicates; we check)
+        if (!document.getElementById(plain)) a.id = plain;
+      });
+
+      // For any element with id="user-content-foo" → insert alias <span id="foo">
+      document.querySelectorAll('[id^="user-content-"]').forEach(function(el){
+        var plain = el.id.replace(/^user-content-/, '');
+        if (!document.getElementById(plain)) {
+          var alias = document.createElement('span');
+          alias.id = plain;
+          alias.style.position = 'relative';
+          alias.style.top = '-0px'; // no offset; adjust if you add fixed headers
+          el.prepend(alias);
+        }
+      });
+    })();
+
+    // ---- 2) Robust Mermaid detection and manual render ----
+    (async function () {
+      function isMermaidFirstLine(s) {
+        if (!s) return false;
+        var first = (s || '').split('\n').find(function (ln) { return ln.trim().length > 0; }) || '';
+        first = first.trim();
+        return /^(graph(?![a-z])|flowchart|sequenceDiagram|classDiagram|erDiagram|stateDiagram|journey|gantt|pie|mindmap|timeline|quadrantChart)\b/.test(first);
+      }
+
+      // GitHub style: <div class="highlight highlight-source-mermaid"><pre>…</pre></div>
+      var preGH = Array.from(document.querySelectorAll('div.highlight-source-mermaid > pre'));
+      // Classic: <pre><code class="language-mermaid">…</code></pre> or inline code
+      var codeClassic = Array.from(document.querySelectorAll('pre > code.language-mermaid, code.language-mermaid, code.mermaid'));
+      // Fallback: any <pre> whose first non-empty line looks like Mermaid
+      var preLooksLike = Array.from(document.querySelectorAll('pre')).filter(function (pre) {
+        if (pre.closest('div.highlight-source-mermaid')) return false;
+        return isMermaidFirstLine(pre.textContent || '');
+      });
+
+      var candidates = [].concat(preGH, codeClassic, preLooksLike);
+
+      var containers = [];
+      candidates.forEach(function (node) {
+        var host, raw;
+        if (node.tagName && node.tagName.toLowerCase() === 'pre') {
+          host = node;
+          raw = node.textContent || '';
+        } else if (node.tagName && node.tagName.toLowerCase() === 'code') {
+          host = node.closest('pre') || node;
+          raw = node.textContent || '';
+        } else {
+          return;
+        }
+        var div = document.createElement('div');
+        div.className = 'mermaid';
+        div.setAttribute('data-raw', raw);
+        div.textContent = raw;
+        host.replaceWith(div);
+        containers.push(div);
+      });
+
+      if (containers.length === 0) {
+        console.warn('Mermaid: no diagrams detected.');
+        return;
+      }
+
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose', // allow <br /> in labels
+          themeVariables: { background: '#ffffff' }
+        });
+
+        let i = 0;
+        for (const el of containers) {
+          const code = el.getAttribute('data-raw') || '';
+          const id = 'mmd-' + (i++);
+          try {
+            const out = await mermaid.render(id, code);
+            el.innerHTML = out.svg;
+            if (typeof out.bindFunctions === 'function') out.bindFunctions(el);
+          } catch (err) {
+            console.error('Mermaid render failed:', err, '\nCode:\n' + code);
+          }
+        }
+        console.log('Mermaid: rendered ' + containers.length + ' diagram(s).');
+      } catch (e) {
+        console.error('Mermaid init failed:', e);
+      }
+    })();
+  </script>
+</body>
+</html>
